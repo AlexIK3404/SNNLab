@@ -1,0 +1,39 @@
+format_version: 1
+snnlab_version: 1.0.0
+architecture: reservoir
+task: classification
+backend: python_cpu
+locale: en
+parameters:
+  architecture: reservoir
+  seed: 52
+  samples_per_epoch: 300
+  epochs: 1
+  checkpoint_every: 100
+  live_frame_every_steps: 25
+  train_pool_size: 1000
+  test_pool_size: 200
+  dataset: mnist
+  iris_neurons_per_feature: 8
+  n_reservoir: 800
+  dt_ms: 0.5
+  simulation_ms: 100.0
+  max_rate_hz: 100.0
+  numerical_method: semi_euler
+  input_density: 0.2
+  recurrent_density: 0.08
+  excitatory_ratio: 0.8
+  input_scale: 2.0
+  recurrent_scale: 1.0
+  bias_current: 2.0
+  tau_syn_ms: 8.0
+  readout: ridge
+  use_feature_selection: true
+  select_k: 400
+  neuron_a: 0.02
+  neuron_b: 0.2
+  neuron_c: -65.0
+  neuron_d: 8.0
+evaluation:
+  test_samples: 200
+  seed: 52

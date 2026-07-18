@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snnlab"
+version = "1.0.0"
+description = "CPU-first research framework and desktop GUI for spiking neural networks"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  {name = "Alexander Konyaev"}
+]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+  "spiking-neural-networks",
+  "snn",
+  "stdp",
+  "reservoir-computing",
+  "izhikevich",
+  "neuroscience",
+]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy>=1.26",
+  "scikit-learn>=1.4",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+mnist = ["tensorflow>=2.16"]
+gui = [
+  "PySide6>=6.7",
+  "pyqtgraph>=0.13.7",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "build>=1.2",
+]
+all = [
+  "tensorflow>=2.16",
+  "PySide6>=6.7",
+  "pyqtgraph>=0.13.7",
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "build>=1.2",
+]
+
+[project.scripts]
+snnlab-reservoir = "snnlab.cli.reservoir:main"
+snnlab-dci = "snnlab.cli.dci:main"
+snnlab-dci-regression = "snnlab.cli.dci_regression:main"
+snnlab-gui = "snnlab.gui.app:main"
+
+[tool.setuptools.packages.find]
+include = ["snnlab*"]
+
+[tool.setuptools.package-data]
+snnlab = [
+  "i18n/resources/*.yaml",
+  "i18n/help/*.yaml",
+  "regression/fixtures/*.npz",
+  "baselines/*.yaml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["snnlab/regression/fixtures"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

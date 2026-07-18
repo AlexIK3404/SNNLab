@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install core and development tools
+        run: python -m pip install -e ".[dev]"
+      - name: Unit tests
+        run: python -m pytest
+      - name: Static analysis
+        run: ruff check .
+      - name: Formatting check
+        run: ruff format --check .
+      - name: CLI smoke tests
+        run: |
+          snnlab-dci --help
+          snnlab-reservoir --help
+          snnlab-dci-regression --help
+
+  gui-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install GUI dependencies
+        run: python -m pip install -e ".[gui,dev]"
+      - name: Qt offscreen smoke test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python - <<'PY'
+          from PySide6.QtWidgets import QApplication
+          from snnlab.gui.main_window import MainWindow
+
+          app = QApplication([])
+          window = MainWindow()
+          assert window.tabs.count() == 6
+          window.close()
+          app.quit()
+          PY
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Build package
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Install wheel in clean environment
+        run: |
+          python -m venv .wheel-test
+          .wheel-test/bin/python -m pip install dist/*.whl
+          .wheel-test/bin/python -c "import snnlab; print(snnlab.__version__)"

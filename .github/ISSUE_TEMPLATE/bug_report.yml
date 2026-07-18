@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible SNNLab problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please attach the JSON created by **Configuration → Save diagnostic report** when possible. Do not attach untrusted or sensitive checkpoints.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Import configuration...\n2. Start...\n3. ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SNNLab version
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture
+      options: [DCI, Reservoir, GUI/general]
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostic report or traceback
+      render: json

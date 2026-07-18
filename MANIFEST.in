@@ -1,0 +1,9 @@
+include README.md
+include README_RU.md
+include LICENSE
+recursive-include examples *.py *.yaml
+recursive-include docs/assets *.png *.jpg *.jpeg *.gif
+recursive-include snnlab/i18n/resources *.yaml
+recursive-include snnlab/i18n/help *.yaml
+recursive-include snnlab/regression/fixtures *.npz
+recursive-include snnlab/baselines *.yaml
