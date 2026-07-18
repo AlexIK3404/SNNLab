@@ -1,0 +1,345 @@
+app:
+  name: SNNLab
+  language: Язык
+run:
+  start: 'Запуск начат: {architecture}'
+  end: Запуск завершён на sample {position}
+  paused: Пауза после sample {position}
+  resumed: Обучение продолжено
+  stopped: Остановлено после sample {position}
+  checkpoint_saved: 'Checkpoint сохранён: {path}'
+  sample: '{position}/{total} | метка={label} | спайки={spikes} | активные={active}'
+stage:
+  start: 'Этап начат: {stage}'
+  end: 'Этап завершён: {stage}'
+components:
+  backends:
+    python_cpu: Python CPU
+  neuron_models:
+    izhikevich: Ижикевич
+  numerical_methods:
+    explicit_euler: Явный Эйлер
+    semi_euler: Полуявный Эйлер
+    semi_implicit_euler: Полунеявный Эйлер
+    implicit_euler: Неявный Эйлер
+    midpoint: Средняя точка
+    semi_midpoint: Полуявная средняя точка
+    semi_implicit_midpoint: Полунеявная средняя точка
+  architectures:
+    reservoir: Reservoir / LSM-like
+    dci: DCI / Diehl-Cook-like
+  readouts:
+    ridge: Ridge-классификатор
+    logreg: Логистическая регрессия
+    linear_svm: Линейный SVM
+    rbf_svm: RBF SVM
+  tasks:
+    classification: Классификация
+gui:
+  window_title: SNNLab — среда экспериментов с SNN
+  architecture: Архитектура
+  task: Задача
+  backend: Backend
+  parameters: Параметры эксперимента
+  help_mode: '[?] Режим изучения'
+  tabs:
+    live: В реальном времени
+    network: Сеть
+    training: Обучение
+    evaluation: Оценка
+    metrics: Метрики
+    logs: Логи
+    training_reservoir: Признаки / Readout
+  buttons:
+    start: Старт
+    pause: Пауза
+    resume: Продолжить
+    resume_paused: Снять с паузы
+    stop: Стоп
+    continue_training: Дообучить
+    continue_checkpoint: Продолжить обучение
+    extend_training: Дообучить
+    load_checkpoint: Загрузить checkpoint
+    fit_readout: Обучить / переобучить readout
+    evaluate: Оценить
+    save_model: Сохранить модель
+    reset_layout: Сбросить layout
+    config_menu: Конфигурация
+    export_config: Экспортировать конфигурацию
+    import_config: Загрузить конфигурацию
+    copy_config: Скопировать конфигурацию
+    copy_diagnostics: Скопировать диагностику
+    save_diagnostics: Сохранить диагностику
+  status:
+    idle: Готово к запуску
+    running: Выполняется
+    paused: На паузе
+    stopped: Остановлено — текущее состояние модели можно использовать
+    completed: Завершено
+    loaded: Checkpoint загружен — модель готова к продолжению или анализу
+    loading: Загрузка checkpoint и датасета
+    error: Ошибка
+    evaluating: Выполняется оценка модели
+    evaluated: Оценка завершена
+    saving_model: Сохранение model snapshot
+    model_saved: Model snapshot сохранён
+    readout_fitted: Readout обучен — Reservoir готов к оценке
+  groups:
+    run: Запуск
+    data: Данные
+    network: Сеть
+    simulation: Симуляция
+    presentation: Предъявление
+    learning: Обучение
+    homeostasis: Гомеостаз
+    neuron: Модель нейрона
+    neuron_exc: Возбуждающий нейрон
+    neuron_inh: Тормозный нейрон
+    readout: Readout
+  params:
+    seed: Seed
+    samples_per_epoch: Sample на эпоху
+    epochs: Число эпох
+    checkpoint_every: Checkpoint каждые N sample
+    live_frame_every_steps: Live-кадр каждые N шагов симуляции
+    train_pool_size: Размер train pool
+    test_pool_size: Размер test pool
+    dataset: Датасет
+    iris_neurons_per_feature: Нейронов популяции на признак Iris
+    n_exc: Возбуждающих нейронов E
+    n_reservoir: Нейронов резервуара
+    dt_ms: Шаг интегрирования dt, мс
+    stimulus_ms: Длительность стимула, мс
+    rest_ms: Длительность отдыха, мс
+    simulation_ms: Длительность симуляции, мс
+    max_rate_hz: Максимальная входная частота, Гц
+    exc_method: Численный метод E
+    inh_method: Численный метод I
+    numerical_method: Численный метод
+    input_gain: Усиление входа
+    weight_exc_inh: Вес E → I
+    target_total_inhibition: Целевое суммарное торможение I → E
+    base_max_rate_hz: Базовая максимальная частота, Гц
+    rate_increment_hz: Прибавка частоты, Гц
+    min_exc_spikes: Минимум E-спайков для принятия
+    max_attempts: Максимум попыток предъявления
+    tau_pre_ms: Постоянная времени pre-trace, мс
+    eta: Скорость STDP η
+    x_target: Целевой trace STDP x_target
+    mu: Весовая степень STDP μ
+    target_spikes_per_sample: Целевые спайки на sample
+    homeo_learning_rate: Скорость обучения гомеостаза
+    homeo_max_current: Максимальный гомеостатический ток
+    exc_a: 'Параметр E: a'
+    exc_b: 'Параметр E: b'
+    exc_c: 'Reset E: c'
+    exc_d: 'Добавка E при reset: d'
+    inh_a: 'Параметр I: a'
+    inh_b: 'Параметр I: b'
+    inh_c: 'Reset I: c'
+    inh_d: 'Добавка I при reset: d'
+    input_density: Плотность входных связей
+    recurrent_density: Плотность рекуррентных связей
+    excitatory_ratio: Доля возбуждающих нейронов
+    input_scale: Масштаб входных весов
+    recurrent_scale: Масштаб рекуррентных весов
+    bias_current: Ток смещения
+    tau_syn_ms: Постоянная затухания синапса, мс
+    readout: Модель readout
+    use_feature_selection: Использовать отбор признаков
+    select_k: Число выбранных признаков k
+    neuron_a: Параметр a
+    neuron_b: Параметр b
+    neuron_c: Reset c
+    neuron_d: Добавка при reset d
+  datasets:
+    iris: Iris
+    mnist: MNIST
+  live:
+    input: Текущий вход
+    raster: Live sampled raster спайков
+    population_state_map: Состояние популяции по индексам
+    population_state_map_tip: Компактная 2D-упаковка нейронов по индексам. Соседство
+      на экране не означает связь или пространственное соседство.
+    sample_activity: Активность по sample
+    frame: Кадр
+    neuron: Нейрон
+    sample: Sample
+    input_tip: Входной объект, который сейчас предъявляется сети. Для MNIST это 28×28
+      пикселей.
+    raster_tip: 'Синий: возбуждающие E-нейроны. Красный: тормозные I-нейроны. Наведи
+      курсор на точку, чтобы увидеть sample, фазу, попытку, шаг и индекс нейрона.'
+    activity_tip: 'Графики по завершённым sample: E-spikes, число активных E и максимальная
+      синхронность. Наведи курсор, чтобы увидеть точные значения sample.'
+    reservoir_raster: Raster резервуара — текущий sample
+    time_ms: Время, мс
+    reservoir_feature_state: Спайковые признаки резервуара по индексам
+    reservoir_sample_activity: Активность резервуара по sample
+    reservoir_raster_tip: Спайки только текущего sample во времени. Синий — нейроны
+      с возбуждающими исходящими связями, красный — с тормозными. При очень плотном
+      raster для скорости показывается равномерная подвыборка точек; hover выводит
+      точные значения.
+    reservoir_state_tip: Число спайков каждого reservoir-нейрона в текущем sample,
+      упакованное в 2D по индексам. Соседство на экране не означает топологическую
+      близость или связь.
+    reservoir_activity_tip: Синий график — доля занятых neuron-time ячеек (spike occupancy),
+      зелёный — доля активных нейронов. Оба значения в процентах; hover показывает
+      также спайки и среднюю частоту.
+    reservoir_saturation_warning: '⚠ Насыщение резервуара: occupancy={occupancy}%
+      | mean rate={rate} Hz. Уменьшите input scale / recurrent scale / bias current.'
+    reservoir_sample_status: sample={position} | спайки={spikes} | активные={active}/{total}
+      | occupancy={occupancy}% | mean rate={rate} Hz
+    spike_occupancy: Spike occupancy, %
+    active_fraction: Активные нейроны, %
+    exc_spikes: E-spikes
+    active_exc: Активные E
+    max_sync: Макс. синхронность
+  training:
+    receptive_fields: Receptive fields Input → E
+    dci_info: Живой снимок обучаемых весов Input → E. Плитки расположены по стабильным
+      индексам E-нейронов; обновление выполняется с ограниченной частотой, чтобы не
+      тормозить симуляцию.
+    reservoir_info: 'В Reservoir входные и рекуррентные веса фиксированы. Здесь показаны
+      обучающие объекты этой архитектуры: средние spike-count признаки по классам,
+      признак текущего sample и состояние внешнего readout.'
+    reservoir_footer: 'sample собрано: {samples} | классов: {classes} | активных признаков:
+      {active}/{total} | readout: {readout}'
+    fixed_scale: Фиксированная шкала STDP
+    waiting: Ожидание первого snapshot обучения…
+    scale_fixed: фиксированная STDP-шкала
+    scale_snapshot: контраст текущего snapshot
+    footer: 'sample={position} | показано полей: {shown}/{total} | шкала: {scale}'
+    non_square_input: 'Нельзя построить 2D receptive fields: размер входа {n_input}
+      не является квадратом.'
+    reservoir_class_activity: Средний отклик резервуара по классам
+    reservoir_current_feature: Признаки текущего sample
+    reservoir_display_order: Порядок показа нейронов
+    class_label: Класс
+    feature_value: Спайков на шаг
+    reservoir_waiting: Ожидание первого завершённого reservoir-sample…
+    reservoir_readout_fitted: обучен
+    reservoir_readout_not_fitted: не обучен
+    reservoir_class_hover: порядок={display} | neuron={neuron} | класс={label} | mean
+      response={response} | sample класса={samples}
+    reservoir_current_hover: sample={position} | label={label} | порядок={display}
+      | neuron={neuron} | feature={value}
+  evaluation:
+    settings: Протокол оценки
+    assignment_samples: Sample для назначения меток E
+    test_samples: Test sample
+    seed: Seed evaluation
+    homeostasis_mode: Гомеостаз при evaluation
+    network_state_mode: Начальное динамическое состояние
+    prediction_rule: Правило классификации
+    homeostasis_frozen: Замороженный обученный ток
+    homeostasis_zero: Нулевой ток
+    state_fresh: Свежее состояние, непрерывно по набору
+    state_trained: Копия обученного состояния, непрерывно
+    rule_balanced: Сбалансированное top-k SNN-голосование
+    rule_mean: Средний отклик назначенных нейронов
+    rule_sum: Суммарный отклик назначенных нейронов
+    min_best_response: Минимальный лучший средний отклик
+    min_absolute_margin: Минимальный абсолютный margin
+    min_relative_margin: Минимальная относительная селективность (0–1)
+    top_k_per_class: Максимум E-нейронов на класс (0 = без ограничения)
+    confusion_matrix: Матрица ошибок
+    class_assignment: Распределение E-нейронов по классам
+    class_id: Класс
+    assigned_neurons: Назначено E-нейронов
+    samples: Sample
+    waiting: Запусти оценку текущей модели кнопкой «Оценить». Evaluation не изменяет
+      training state.
+    summary_dci: 'Accuracy: {accuracy}% | назначено E: {assigned}% | accepted assignment:
+      {accepted_assignment}% | accepted test: {accepted_test}%'
+    summary_reservoir: 'Accuracy: {accuracy}%'
+    overview_tab: Обзор
+    diagnostics_tab: Диагностика
+    response_tab: Отклики E
+    prediction_distribution: Распределение предсказаний
+    predicted_samples: Предсказано sample
+    per_class_accuracy: Accuracy по классам
+    per_class_accuracy_percent: Accuracy, %
+    selectivity_margin: 'Селективность E: лучший класс − второй'
+    relative_selectivity_margin: Относительная селективность E
+    best_response: Лучший средний отклик E
+    response_heatmap: Средний отклик E на классы
+    response_heatmap_help: Строки — классы, столбцы — E-нейроны, отсортированные по
+      назначенному классу и селективности. Яркость показывает средний отклик нейрона
+      на класс.
+    response_heatmap_reservoir: Для Reservoir class-response heatmap не применяется;
+      используйте readout diagnostics.
+    diagnostics_summary: 'Unassigned E: {unassigned} | silent: {silent} | отклонено
+      по качеству: {quality_rejected} | отброшено top-k: {top_k_pruned} | median relative
+      margin: {median_relative_margin} | unclassified test: {unclassified}'
+    confusion_tip: 'Матрица: строки — истинные классы, столбцы — предсказанные. Наведи
+      курсор на ячейку, чтобы увидеть count и долю строки.'
+    class_assignment_tip: Сколько E-нейронов назначено каждому классу. Hover показывает
+      точное число и долю среди назначенных.
+    prediction_distribution_tip: Сколько test-sample модель предсказала как каждый
+      класс.
+    per_class_accuracy_tip: Accuracy отдельно по каждому истинному классу.
+    margin_tip: Относительная селективность = (лучший отклик − второй) / лучший отклик.
+      Значения около нуля означают слабую специализацию.
+    best_response_tip: Лучший средний отклик назначенного E-нейрона на один из классов.
+    assignment_policy: Источник данных для назначения меток E
+    assignment_full_pool: Весь train pool
+    assignment_exclude_training: Исключить sample, использованные STDP
+    assignment_training_subset: Только sample, использованные STDP
+  metrics:
+    sample: Sample
+    label: Метка
+    accepted: Принят
+    attempts: Попытки
+    spikes: Спайки
+    active: Активные
+    sync: Макс. синхр.
+    rate_hz: Частота, Гц
+    homeo_max: Макс. homeo
+  network:
+    input: Вход / Encoder
+    excitatory: Возбуждающие E
+    inhibitory: Тормозные I
+    dci_rules: 'Input → E
+
+      Eᵢ → Iᵢ
+
+      Iᵢ → Eⱼ, j ≠ i'
+    reservoir: 'Спайковый резервуар
+
+      фиксированные рекуррентные веса'
+    readout: Readout
+  dialogs:
+    continue_title: Дообучение
+    additional_samples: Сколько sample добавить
+    repeats_title: Повторы sample
+    allow_repeats: Разрешить повторное появление sample, уже существующих в расписании?
+    load_checkpoint: Загрузить checkpoint SNNLab
+    error_title: Ошибка эксперимента
+    worker_failed: Фоновый эксперимент завершился с ошибкой. Полный traceback находится
+      во вкладке «Логи».
+    exit_title: Эксперимент выполняется
+    exit_running: Запросить остановку и закрыть приложение?
+    export_config: Экспорт конфигурации эксперимента
+    import_config: Загрузка конфигурации эксперимента
+    save_diagnostics: Сохранение диагностического отчёта
+    config_exported: 'Конфигурация сохранена:
+
+      {path}'
+    config_imported: Конфигурация успешно загружена.
+    config_copied: Конфигурация скопирована в буфер обмена.
+    diagnostics_copied: Диагностический отчёт скопирован в буфер обмена.
+    diagnostics_saved: 'Диагностический отчёт сохранён:
+
+      {path}'
+    untrusted_checkpoint_title: Требуется доверенный checkpoint
+    untrusted_checkpoint_text: Checkpoint использует Python pickle. Загружайте только
+      собственные файлы или файлы из доверенного источника. Продолжить?
+  log:
+    pause_requested: Запрошена пауза; ждём ближайшую checkpoint-safe границу.
+    stop_requested: Запрошена остановка; текущий sample будет завершён перед остановкой.
+    session_ready: 'Session готова: тип={kind}, run_dir={run_dir}'
+    evaluation_end: 'Evaluation завершена: accuracy={accuracy}%'
+    model_saved: 'Model snapshot сохранён: {path}'
+    config_exported: 'Конфигурация сохранена: {path}'
+    config_imported: 'Конфигурация загружена: {path}'
+    diagnostics_saved: 'Диагностический отчёт сохранён: {path}'

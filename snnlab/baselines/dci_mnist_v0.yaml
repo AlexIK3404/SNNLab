@@ -1,0 +1,72 @@
+format_version: 1
+baseline_id: dci_mnist_v0
+status: frozen_reference
+framework_version: 0.3.5
+packaged_with: 1.0.0
+created_from:
+  architecture: dci
+  dataset: mnist
+  seed: 52
+  notes:
+    - "First frozen DCI end-to-end STDP classification baseline."
+    - "Reported metrics are a single-seed development result, not a final benchmark."
+training:
+  train_pool_size: 5000
+  samples_per_epoch: 1500
+  epochs: 5
+  total_presentations: 7500
+  unique_training_samples: 1500
+  checkpoint_every: 1500
+  live_frame_every_steps: 250
+network:
+  n_exc: 400
+  n_inh: 400
+  input_gain: 0.60
+  weight_exc_inh: 0.30
+  target_total_inhibition: 20.0
+simulation:
+  dt_ms: 0.1
+  stimulus_ms: 350.0
+  rest_ms: 150.0
+  exc_method: explicit_euler
+  inh_method: explicit_euler
+presentation:
+  base_max_rate_hz: 63.75
+  rate_increment_hz: 32.0
+  min_exc_spikes: 5
+  max_attempts: 5
+stdp:
+  tau_pre_ms: 20.0
+  eta: 0.00003
+  x_target: 0.40
+  mu: 0.20
+homeostasis:
+  target_spikes_per_sample: 0.25
+  learning_rate: 0.005
+  max_current: 8.0
+izhikevich:
+  excitatory: {a: 0.02, b: 0.20, c: -65.0, d: 8.0}
+  inhibitory: {a: 0.10, b: 0.20, c: -65.0, d: 2.0}
+evaluation:
+  assignment_samples: 2000
+  test_samples: 500
+  seed: 52
+  assignment_policy: full_train_pool
+  homeostasis_mode: frozen
+  network_state_mode: fresh_continuous
+  quality_filters:
+    min_best_response: 0.0
+    min_absolute_margin: 0.0
+    min_relative_margin: 0.0
+    top_k_per_class: 0
+reported_result:
+  mean_response_accuracy: 0.514
+  balanced_topk_accuracy: 0.554
+  assigned_e_fraction: 0.9675
+  silent_e_count: 13
+  accepted_assignment_fraction: 0.999
+  accepted_test_fraction: 1.0
+limitations:
+  - "Only 500 test samples were used."
+  - "Only one seed was evaluated."
+  - "Assignment and STDP subsets must be audited for overlap before publication-quality benchmarking."

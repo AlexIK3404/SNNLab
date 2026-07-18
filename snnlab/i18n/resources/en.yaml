@@ -1,0 +1,341 @@
+app:
+  name: SNNLab
+  language: Language
+run:
+  start: 'Run started: {architecture}'
+  end: Run completed at sample {position}
+  paused: Paused after sample {position}
+  resumed: Training resumed
+  stopped: Stopped after sample {position}
+  checkpoint_saved: 'Checkpoint saved: {path}'
+  sample: '{position}/{total} | label={label} | spikes={spikes} | active={active}'
+stage:
+  start: 'Stage started: {stage}'
+  end: 'Stage completed: {stage}'
+components:
+  backends:
+    python_cpu: Python CPU
+  neuron_models:
+    izhikevich: Izhikevich
+  numerical_methods:
+    explicit_euler: Explicit Euler
+    semi_euler: Semi-explicit Euler
+    semi_implicit_euler: Semi-implicit Euler
+    implicit_euler: Implicit Euler
+    midpoint: Midpoint
+    semi_midpoint: Semi-explicit midpoint
+    semi_implicit_midpoint: Semi-implicit midpoint
+  architectures:
+    reservoir: Reservoir / LSM-like
+    dci: DCI / Diehl-Cook-like
+  readouts:
+    ridge: Ridge classifier
+    logreg: Logistic regression
+    linear_svm: Linear SVM
+    rbf_svm: RBF SVM
+  tasks:
+    classification: Classification
+gui:
+  window_title: SNNLab — SNN Experiment Environment
+  architecture: Architecture
+  task: Task
+  backend: Backend
+  parameters: Experiment parameters
+  help_mode: '[?] Learning mode'
+  tabs:
+    live: Live
+    network: Network
+    training: Training
+    evaluation: Evaluation
+    metrics: Metrics
+    logs: Logs
+    training_reservoir: Features / Readout
+  buttons:
+    start: Start
+    pause: Pause
+    resume: Resume
+    resume_paused: Resume paused run
+    stop: Stop
+    continue_training: Continue training
+    continue_checkpoint: Continue run
+    extend_training: Extend training
+    load_checkpoint: Load checkpoint
+    fit_readout: Fit / refit readout
+    evaluate: Evaluate
+    save_model: Save model
+    reset_layout: Reset layout
+    config_menu: Configuration
+    export_config: Export configuration
+    import_config: Import configuration
+    copy_config: Copy configuration
+    copy_diagnostics: Copy diagnostic report
+    save_diagnostics: Save diagnostic report
+  status:
+    idle: Idle
+    running: Running
+    paused: Paused
+    stopped: Stopped — current model state is usable
+    completed: Completed
+    loaded: Checkpoint loaded — model is ready to continue or inspect
+    loading: Loading checkpoint and dataset
+    error: Error
+    evaluating: Evaluating model
+    evaluated: Evaluation completed
+    saving_model: Saving model snapshot
+    model_saved: Model snapshot saved
+    readout_fitted: Readout fitted — Reservoir is ready for evaluation
+  groups:
+    run: Run
+    data: Data
+    network: Network
+    simulation: Simulation
+    presentation: Presentation
+    learning: Learning
+    homeostasis: Homeostasis
+    neuron: Neuron model
+    neuron_exc: Excitatory neuron
+    neuron_inh: Inhibitory neuron
+    readout: Readout
+  params:
+    seed: Seed
+    samples_per_epoch: Samples per epoch
+    epochs: Epochs
+    checkpoint_every: Checkpoint every N samples
+    live_frame_every_steps: Live frame every N simulation steps
+    train_pool_size: Training pool size
+    test_pool_size: Test pool size
+    dataset: Dataset
+    iris_neurons_per_feature: Iris population neurons per feature
+    n_exc: Excitatory neurons (E)
+    n_reservoir: Reservoir neurons
+    dt_ms: Integration step dt, ms
+    stimulus_ms: Stimulus duration, ms
+    rest_ms: Rest duration, ms
+    simulation_ms: Simulation duration, ms
+    max_rate_hz: Maximum input rate, Hz
+    exc_method: E numerical method
+    inh_method: I numerical method
+    numerical_method: Numerical method
+    input_gain: Input gain
+    weight_exc_inh: E → I weight
+    target_total_inhibition: Target total I → E inhibition
+    base_max_rate_hz: Base maximum rate, Hz
+    rate_increment_hz: Rate increment, Hz
+    min_exc_spikes: Minimum E spikes for acceptance
+    max_attempts: Maximum presentation attempts
+    tau_pre_ms: Pre-trace time constant, ms
+    eta: STDP learning rate η
+    x_target: STDP target trace x_target
+    mu: STDP weight exponent μ
+    target_spikes_per_sample: Target spikes per sample
+    homeo_learning_rate: Homeostasis learning rate
+    homeo_max_current: Maximum homeostatic current
+    exc_a: E parameter a
+    exc_b: E parameter b
+    exc_c: E reset c
+    exc_d: E reset increment d
+    inh_a: I parameter a
+    inh_b: I parameter b
+    inh_c: I reset c
+    inh_d: I reset increment d
+    input_density: Input connection density
+    recurrent_density: Recurrent connection density
+    excitatory_ratio: Excitatory neuron ratio
+    input_scale: Input weight scale
+    recurrent_scale: Recurrent weight scale
+    bias_current: Bias current
+    tau_syn_ms: Synaptic decay time constant, ms
+    readout: Readout model
+    use_feature_selection: Use feature selection
+    select_k: Selected feature count k
+    neuron_a: Parameter a
+    neuron_b: Parameter b
+    neuron_c: Reset c
+    neuron_d: Reset increment d
+  datasets:
+    iris: Iris
+    mnist: MNIST
+  live:
+    input: Current input
+    raster: Live sampled spike raster
+    population_state_map: Population state by neuron index
+    population_state_map_tip: Compact 2D packing by neuron index. Screen adjacency
+      does not imply connectivity or spatial neighbourhood.
+    sample_activity: Sample-level activity
+    frame: Frame
+    neuron: Neuron
+    sample: Sample
+    input_tip: Current input object presented to the network. MNIST is shown as a
+      28×28 image.
+    raster_tip: 'Blue: excitatory E neurons. Red: inhibitory I neurons. Hover a point
+      to see sample, phase, attempt, step, and neuron index.'
+    activity_tip: 'Completed-sample trends: E spikes, active E count, and maximum
+      synchrony. Hover to read exact sample values.'
+    reservoir_raster: Reservoir raster — current sample
+    time_ms: Time, ms
+    reservoir_feature_state: Reservoir spike features by neuron index
+    reservoir_sample_activity: Reservoir sample activity
+    reservoir_raster_tip: Spikes from the current sample only, plotted in time. Blue
+      neurons have excitatory outgoing connections; red neurons have inhibitory outgoing
+      connections. Very dense rasters are uniformly subsampled for rendering; hover
+      shows exact values.
+    reservoir_state_tip: Spike count of every reservoir neuron for the current sample,
+      packed into 2D by index. Screen adjacency does not imply topology or connectivity.
+    reservoir_activity_tip: Blue is neuron-time spike occupancy; green is the fraction
+      of active neurons. Both are percentages. Hover also shows total spikes and mean
+      firing rate.
+    reservoir_saturation_warning: '⚠ Reservoir saturation: occupancy={occupancy}%
+      | mean rate={rate} Hz. Reduce input scale / recurrent scale / bias current.'
+    reservoir_sample_status: sample={position} | spikes={spikes} | active={active}/{total}
+      | occupancy={occupancy}% | mean rate={rate} Hz
+    spike_occupancy: Spike occupancy, %
+    active_fraction: Active neurons, %
+    exc_spikes: E spikes
+    active_exc: Active E
+    max_sync: Max synchrony
+  training:
+    receptive_fields: Input → E receptive fields
+    dci_info: Live snapshot of trainable Input → E weights. Tiles use stable E-neuron
+      indices and are updated at a throttled interval to avoid slowing simulation.
+    reservoir_info: 'Reservoir input and recurrent weights are fixed. This workspace
+      shows the trainable architecture objects: class-mean spike-count features, the
+      current sample feature, and external readout state.'
+    reservoir_footer: 'samples collected: {samples} | classes: {classes} | active
+      features: {active}/{total} | readout: {readout}'
+    fixed_scale: Fixed STDP scale
+    waiting: Waiting for the first learning snapshot…
+    scale_fixed: fixed STDP scale
+    scale_snapshot: current-snapshot contrast
+    footer: 'sample={position} | fields shown: {shown}/{total} | scale: {scale}'
+    non_square_input: 'Cannot build 2D receptive fields: input size {n_input} is not
+      a square.'
+    reservoir_class_activity: Mean reservoir response by class
+    reservoir_current_feature: Current sample features
+    reservoir_display_order: Neuron display order
+    class_label: Class
+    feature_value: Spikes per step
+    reservoir_waiting: Waiting for the first completed reservoir sample…
+    reservoir_readout_fitted: fitted
+    reservoir_readout_not_fitted: not fitted
+    reservoir_class_hover: display={display} | neuron={neuron} | class={label} | mean
+      response={response} | class samples={samples}
+    reservoir_current_hover: sample={position} | label={label} | display={display}
+      | neuron={neuron} | feature={value}
+  evaluation:
+    settings: Evaluation protocol
+    assignment_samples: Samples for E-label assignment
+    test_samples: Test samples
+    seed: Evaluation seed
+    homeostasis_mode: Evaluation homeostasis
+    network_state_mode: Initial dynamic state
+    prediction_rule: Classification rule
+    homeostasis_frozen: Frozen trained current
+    homeostasis_zero: Zero current
+    state_fresh: Fresh state, continuous across set
+    state_trained: Copy trained state, continuous
+    rule_balanced: Balanced top-k SNN voting
+    rule_mean: Mean response of assigned neurons
+    rule_sum: Summed response of assigned neurons
+    min_best_response: Minimum best mean response
+    min_absolute_margin: Minimum absolute selectivity margin
+    min_relative_margin: Minimum relative selectivity (0–1)
+    top_k_per_class: Maximum E neurons per class (0 = unlimited)
+    confusion_matrix: Confusion matrix
+    class_assignment: E-neuron class distribution
+    class_id: Class
+    assigned_neurons: Assigned E neurons
+    samples: Samples
+    waiting: Run evaluation with the Evaluate button. Evaluation does not mutate training
+      state.
+    summary_dci: 'Accuracy: {accuracy}% | assigned E: {assigned}% | accepted assignment:
+      {accepted_assignment}% | accepted test: {accepted_test}%'
+    summary_reservoir: 'Accuracy: {accuracy}%'
+    overview_tab: Overview
+    diagnostics_tab: Diagnostics
+    response_tab: E responses
+    prediction_distribution: Prediction distribution
+    predicted_samples: Predicted samples
+    per_class_accuracy: Per-class accuracy
+    per_class_accuracy_percent: Accuracy, %
+    selectivity_margin: 'E selectivity: best class − second'
+    relative_selectivity_margin: Relative E selectivity
+    best_response: Best mean E response
+    response_heatmap: Mean E response to classes
+    response_heatmap_help: Rows are classes; columns are E neurons sorted by assigned
+      class and selectivity. Brightness shows the neuron's mean response to a class.
+    response_heatmap_reservoir: Class-response heatmap is not used for Reservoir;
+      use readout diagnostics instead.
+    diagnostics_summary: 'Unassigned E: {unassigned} | silent: {silent} | rejected
+      by quality: {quality_rejected} | pruned by top-k: {top_k_pruned} | median relative
+      margin: {median_relative_margin} | unclassified test: {unclassified}'
+    confusion_tip: 'Matrix: rows are true classes, columns are predicted classes.
+      Hover a cell to see count and row share.'
+    class_assignment_tip: Number of E neurons assigned to each class. Hover for exact
+      count and assigned-share.
+    prediction_distribution_tip: How many test samples the model predicted as each
+      class.
+    per_class_accuracy_tip: Accuracy computed separately for each true class.
+    margin_tip: Relative selectivity = (best response − second-best response) / best
+      response. Values near zero indicate weak specialization.
+    best_response_tip: Best mean response of an assigned E neuron to any class.
+    assignment_policy: Assignment data policy
+    assignment_full_pool: Full training pool
+    assignment_exclude_training: Exclude STDP training samples
+    assignment_training_subset: Only STDP training samples
+  metrics:
+    sample: Sample
+    label: Label
+    accepted: Accepted
+    attempts: Attempts
+    spikes: Spikes
+    active: Active
+    sync: Max sync
+    rate_hz: Rate, Hz
+    homeo_max: Homeo max
+  network:
+    input: Input / Encoder
+    excitatory: Excitatory E
+    inhibitory: Inhibitory I
+    dci_rules: 'Input → E
+
+      Eᵢ → Iᵢ
+
+      Iᵢ → Eⱼ, j ≠ i'
+    reservoir: 'Spiking Reservoir
+
+      fixed recurrent weights'
+    readout: Readout
+  dialogs:
+    continue_title: Continue training
+    additional_samples: Additional samples
+    repeats_title: Sample repeats
+    allow_repeats: Allow samples already present in the schedule to appear again?
+    load_checkpoint: Load SNNLab checkpoint
+    error_title: Experiment error
+    worker_failed: The background experiment failed. See the Logs tab for the traceback.
+    exit_title: Experiment is running
+    exit_running: Request stop and close the application?
+    export_config: Export experiment configuration
+    import_config: Import experiment configuration
+    save_diagnostics: Save diagnostic report
+    config_exported: 'Configuration exported:
+
+      {path}'
+    config_imported: Configuration imported successfully.
+    config_copied: Configuration copied to clipboard.
+    diagnostics_copied: Diagnostic report copied to clipboard.
+    diagnostics_saved: 'Diagnostic report saved:
+
+      {path}'
+    untrusted_checkpoint_title: Trusted checkpoint required
+    untrusted_checkpoint_text: Checkpoint files use Python pickle. Load only files
+      created by you or a trusted source. Continue?
+  log:
+    pause_requested: Pause requested; waiting for the next checkpoint-safe boundary.
+    stop_requested: Stop requested; current sample will finish before shutdown.
+    session_ready: 'Session ready: kind={kind}, run_dir={run_dir}'
+    evaluation_end: 'Evaluation completed: accuracy={accuracy}%'
+    model_saved: 'Model snapshot saved: {path}'
+    config_exported: 'Configuration exported: {path}'
+    config_imported: 'Configuration imported: {path}'
+    diagnostics_saved: 'Diagnostic report saved: {path}'

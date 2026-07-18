@@ -1,0 +1,343 @@
+experiment:
+  seed:
+    title: Random seed
+    short: Controls reproducible random initialization and sample ordering.
+    long: Using the same seed with the same software and configuration helps reproduce
+      weights, sample schedules, and stochastic spike generation.
+  samples_per_epoch:
+    title: Samples per epoch
+    short: Size of the fixed training subset traversed during one epoch.
+    long: The subset is selected once from the training pool. Every later epoch revisits
+      the same samples in a new deterministic order, giving the epoch count a conventional
+      and reproducible meaning.
+  epochs:
+    title: Epoch count
+    short: Number of complete passes over the selected training subset.
+    long: For example, 300 samples per epoch and 5 epochs produce 1500 sequential
+      presentations. Each epoch order is shuffled deterministically and stored in
+      checkpoints.
+runtime:
+  checkpoint_every:
+    title: Checkpoint interval
+    short: Saves a resumable model state every N completed samples.
+    long: A checkpoint contains model state, schedule position, history, and RNG state
+      needed for continuation. Set 0 to disable periodic checkpoints.
+  live_frame_every_steps:
+    title: Live frame interval
+    short: Controls how often simulation snapshots are sent to the GUI.
+    long: Smaller values make live visualization smoother but increase event traffic
+      and rendering overhead.
+dataset:
+  train_pool_size:
+    title: Training pool size
+    short: Maximum number of dataset objects available to the training schedule.
+    long: This is separate from Training samples. The pool defines available objects;
+      the schedule chooses which of them are processed.
+  test_pool_size:
+    title: Test pool size
+    short: Maximum number of test objects loaded into the session.
+    long: The test pool is reserved for later evaluation and does not affect training
+      updates.
+  kind:
+    title: Dataset
+    short: Selects the data source used by the experiment.
+    long: Different datasets can require different encoders and input population sizes.
+izhikevich:
+  a:
+    title: Recovery time scale a
+    short: Controls how quickly the recovery variable u evolves.
+    long: Larger a values make u react faster, changing adaptation and firing dynamics.
+    affects:
+    - recovery speed
+    - adaptation
+    - firing regime
+  b:
+    title: Recovery sensitivity b
+    short: Controls the sensitivity of u to membrane potential v.
+    long: The parameter b couples the recovery variable to subthreshold membrane dynamics.
+  c:
+    title: Reset potential c
+    short: Membrane potential assigned immediately after a spike.
+    long: Changing c modifies the post-spike reset state and can alter bursting and
+      inter-spike timing.
+  d:
+    title: Recovery reset increment d
+    short: Amount added to recovery variable u after a spike.
+    long: Larger d usually strengthens post-spike adaptation and can reduce subsequent
+      firing.
+simulation:
+  dt_ms:
+    title: Integration step dt
+    short: Time step of the numerical method, expressed in model milliseconds.
+    long: Smaller dt usually increases computational cost and can change spike timing
+      and numerical stability.
+dci:
+  n_exc:
+    title: Excitatory population size
+    short: Number of E neurons; the current DCI topology uses the same number of I
+      neurons.
+    long: Increasing population size raises representational capacity and computational
+      cost. In the current one-to-one E→I design, n_inh equals n_exc.
+  stimulus_ms:
+    title: Stimulus duration
+    short: Duration of one input presentation attempt.
+    long: Longer stimuli provide more time for spikes and competition but increase
+      simulation cost.
+  rest_ms:
+    title: Rest duration
+    short: Zero-input period after each presentation attempt.
+    long: The network state continues evolving during rest; this can dissipate conductances
+      and residual activity.
+  exc_method:
+    title: E numerical method
+    short: Integration method used for excitatory Izhikevich neurons.
+    long: The framework allows E and I populations to use different numerical methods.
+      Their influence should be validated experimentally.
+  inh_method:
+    title: I numerical method
+    short: Integration method used for inhibitory Izhikevich neurons.
+    long: Choosing a different method can change inhibitory spike timing, competition,
+      stability, and cost.
+  input_gain:
+    title: Input gain
+    short: Scales Input→E excitatory conductance increments.
+    long: Higher values strengthen external drive and generally increase excitatory
+      activity.
+  weight_exc_inh:
+    title: E→I weight
+    short: Strength of the one-to-one excitatory-to-inhibitory connection.
+    long: It controls how reliably E spikes recruit their paired I neurons.
+  target_total_inhibition:
+    title: Target total I→E inhibition
+    short: Desired total lateral inhibitory strength before per-connection scaling.
+    long: The framework divides this value by n_exc−1 so inhibition remains interpretable
+      across population sizes.
+  base_max_rate_hz:
+    title: Base maximum Poisson rate
+    short: Initial input rate scale for the first presentation attempt.
+    long: Input values are mapped to Poisson rates up to this maximum.
+  rate_increment_hz:
+    title: Rate increment
+    short: Additional maximum input rate used after an under-active attempt.
+    long: Each retry increases the rate by this amount until activity is sufficient
+      or max_attempts is reached.
+  min_exc_spikes:
+    title: Minimum E spikes
+    short: Acceptance threshold for one presentation attempt.
+    long: If total E spikes are below this threshold, the sample is retried with a
+      higher Poisson rate.
+  max_attempts:
+    title: Maximum attempts
+    short: Maximum number of rate-escalation attempts for one sample.
+    long: The final attempt is used for STDP and homeostasis even when the acceptance
+      threshold is not reached.
+  tau_pre_ms:
+    title: Pre-trace time constant
+    short: Decay time constant of the presynaptic STDP trace.
+    long: It defines how long recent input spikes influence a later postsynaptic update.
+  eta:
+    title: STDP learning rate η
+    short: Global scale of Input→E weight updates.
+    long: Larger values accelerate learning but can destabilize receptive-field formation.
+  x_target:
+    title: STDP target trace
+    short: Reference presynaptic trace used by the current weight update.
+    long: The update depends on pre_trace − x_target at a postsynaptic spike.
+  mu:
+    title: STDP weight exponent μ
+    short: Controls dependence on remaining distance to the upper weight bound.
+    long: It shapes how learning slows or changes as a weight approaches w_max.
+  target_spikes_per_sample:
+    title: Target spikes per sample
+    short: Target activity used by sample-level homeostasis.
+    long: After the final presentation attempt, each E neuron's inhibitory homeostatic
+      current is corrected according to observed minus target spike count.
+  homeo_learning_rate:
+    title: Homeostasis learning rate
+    short: Scale of the sample-level homeostatic correction.
+    long: Too large a value can suppress most neurons rapidly; too small a value may
+      fail to control persistent leaders.
+  homeo_max_current:
+    title: Maximum homeostatic current
+    short: Upper bound for additional inhibitory current per E neuron.
+    long: The bound prevents unlimited growth of the homeostatic correction.
+reservoir:
+  iris_neurons_per_feature:
+    title: Population neurons per Iris feature
+    short: Number of Gaussian encoder neurons allocated to each scalar feature.
+    long: More neurons provide finer population coding but increase input dimensionality.
+  n_reservoir:
+    title: Reservoir size
+    short: Number of spiking neurons in the recurrent reservoir.
+    long: Larger reservoirs can provide richer features at higher computational and
+      memory cost.
+  simulation_ms:
+    title: Simulation duration
+    short: Time simulated for each input sample.
+    long: Longer windows can capture more recurrent dynamics but increase runtime.
+  max_rate_hz:
+    title: Maximum encoder rate
+    short: Upper firing-rate scale used by the input encoder.
+    long: It controls input spike density and therefore reservoir drive.
+  numerical_method:
+    title: Reservoir numerical method
+    short: Integration method used by all reservoir neurons in the current implementation.
+    long: The method affects computational cost, numerical stability, and spike timing.
+  input_density:
+    title: Input connection density
+    short: Fraction of possible Input→Reservoir connections that exist.
+    long: Higher density spreads each input more broadly through the reservoir and
+      increases computation.
+  recurrent_density:
+    title: Recurrent connection density
+    short: Fraction of possible recurrent reservoir connections that are present.
+    long: Higher density increases recurrent interaction and computational cost; it
+      can also change activity stability.
+  excitatory_ratio:
+    title: Excitatory neuron ratio
+    short: Fraction of reservoir neurons with positive outgoing recurrent weights.
+    long: The remaining neurons are inhibitory in the current sign-based recurrent
+      construction.
+  input_scale:
+    title: Input weight scale
+    short: Scales random Input→Reservoir weights.
+    long: 'Higher values strengthen external drive into the reservoir. The GUI applies
+      a dataset preset: Iris 10.0, MNIST 2.0. Very high spike occupancy indicates
+      saturation and requires reducing this parameter.'
+  recurrent_scale:
+    title: Recurrent weight scale
+    short: Scales recurrent reservoir weights.
+    long: This parameter strongly affects amplification, persistence, and stability
+      of recurrent activity. The starting preset is Iris 4.0 and MNIST 1.0. When saturation
+      is reported, reduce it together with input scale and, if needed, bias current.
+  bias_current:
+    title: Bias current
+    short: Constant current added to each reservoir neuron.
+    long: Bias can move neurons closer to or farther from firing conditions.
+  tau_syn_ms:
+    title: Synaptic decay time constant
+    short: Controls exponential decay of the reservoir synaptic state.
+    long: Larger values preserve synaptic influence for longer and increase temporal
+      memory.
+  readout:
+    title: Readout model
+    short: External machine-learning model fitted on reservoir activity features.
+    long: The reservoir weights remain fixed; the readout maps extracted features
+      to task outputs.
+  use_feature_selection:
+    title: Feature selection
+    short: Enables supervised selection of the most informative reservoir features.
+    long: This can reduce readout dimensionality and cost, but selection itself uses
+      labels.
+  select_k:
+    title: Selected feature count k
+    short: Number of reservoir features kept before fitting the readout.
+    long: The effective value is clipped to the available feature dimension.
+evaluation:
+  assignment_samples:
+    title: E-label assignment samples
+    short: Number of labelled training objects used only to map E neurons to classes.
+    long: After STDP, the network is run without changing weights. A class-mean response
+      is computed for every E neuron and its best class is assigned. These samples
+      are not the test set. For a clean protocol, they should preferably not overlap
+      the objects used for STDP.
+    affects:
+    - class-assignment stability
+    - silent-neuron count
+    - evaluation time
+  test_samples:
+    title: Test samples
+    short: Number of test-set objects used to compute accuracy and the confusion matrix.
+    long: A larger value reduces random evaluation variance but increases runtime.
+      Test labels are used only for metrics and must not affect weights, homeostasis,
+      or E-neuron assignment.
+    affects:
+    - statistical precision
+    - evaluation time
+  seed:
+    title: Evaluation seed
+    short: Controls reproducible assignment/test sampling and evaluation Poisson spikes.
+    long: The same seed with an unchanged model and protocol should reproduce the
+      same evaluation. Final conclusions should preferably use several seeds rather
+      than a single run.
+    affects:
+    - sample selection
+    - Poisson realizations
+    - reproducibility
+  homeostasis_mode:
+    title: Evaluation homeostasis
+    short: Selects the additional E-neuron homeostatic current used during evaluation.
+    long: Frozen trained current preserves the excitability distribution learned during
+      training without adapting it further. Zero current removes the trained homeostatic
+      current and changes the network regime; this is useful as an ablation, not as
+      the default trained-model protocol.
+    affects:
+    - E-neuron excitability
+    - competition
+    - training/evaluation consistency
+  network_state_mode:
+    title: Initial dynamic state
+    short: Selects the starting v, u, and synaptic state for evaluation.
+    long: Fresh state creates neutral dynamics and then runs continuously across the
+      set. Trained-state copy starts from the checkpoint dynamics. Use the same mode
+      when comparing models or decoders.
+    affects:
+    - initial transient
+    - reproducibility
+    - run comparability
+  prediction_rule:
+    title: Classification rule
+    short: Converts spikes from assigned E neurons into a class without an external
+      ML classifier.
+    long: Mean response averages the neurons assigned to each class. Sum response
+      adds them and is sensitive to class-group size. Balanced top-k voting normalizes
+      class contribution and can restrict each class to its most selective E neurons.
+    affects:
+    - final prediction
+    - sensitivity to assignment imbalance
+  min_best_response:
+    title: Minimum best mean response
+    short: Rejects E neurons that respond too weakly even to their best class.
+    long: The threshold is applied during label assignment. A large value keeps only
+      active neurons but may sharply reduce class coverage and increase unassigned
+      E. Zero disables this filter.
+    affects:
+    - assigned-E count
+    - voting quality and coverage
+  min_absolute_margin:
+    title: Minimum absolute margin
+    short: Requires a minimum difference between the best and second-best class response.
+    long: The threshold uses the same units as the mean response. It can remove ambiguous
+      neurons but depends on the global activity scale. Zero disables this filter.
+    affects:
+    - assigned-E selectivity
+    - unassigned-E count
+  min_relative_margin:
+    title: Minimum relative selectivity
+    short: Requires a minimum fractional advantage of the best class over the second-best
+      class.
+    long: Relative margin is computed as (best − second) / best. Zero performs no
+      filtering; one requires almost no response to the runner-up class. A high threshold
+      improves vote purity at the cost of coverage.
+    affects:
+    - specialization purity
+    - assigned-E count
+    - class coverage
+  top_k_per_class:
+    title: Maximum E neurons per class
+    short: Limits each class to its highest-quality assigned neurons.
+    long: This prevents classes with very large assigned groups from dominating only
+      because of group size. Zero disables the limit. A very small k may discard useful
+      neurons and leave rare classes without enough votes.
+    affects:
+    - class balance
+    - number of voting E neurons
+    - decoder stability
+  assignment_policy:
+    title: Assignment data policy
+    short: Defines which training-pool objects are used to assign class labels to
+      E neurons.
+    long: Full pool preserves the current baseline protocol. Exclude-training creates
+      a disjoint label-assignment subset when the pool is large enough. Training-subset
+      uses only objects previously presented to STDP. The exact indices and overlap
+      are written to data_protocol.json.
