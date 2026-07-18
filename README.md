@@ -26,7 +26,7 @@ SNNLab is a Python research framework and desktop environment for experiments wi
 
 ### Option 1 — install the ready-made wheel
 
-This is the simplest option for colleagues who only want to run SNNLab. The wheel contains the packaged SNNLab code; `pip` installs it into a Python environment and creates the `snnlab-gui` command.
+This is the simplest option if you want only to run SNNLab. The wheel contains the packaged SNNLab code; `pip` installs it into a Python environment and creates the `snnlab-gui` command.
 
 Create and activate a virtual environment:
 
