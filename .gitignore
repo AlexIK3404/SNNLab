@@ -35,3 +35,7 @@ models/
 *.npz
 *.npy
 *.gif
+
+# Versioned project assets that intentionally use ignored extensions
+!snnlab/regression/fixtures/*.npz
+!docs/assets/*.gif
