@@ -1,10 +1,10 @@
 # Single-neuron numerical-method ablation
 
-The **Single neuron** workspace is the first layer of SNNLab's ablation workflow. It isolates
+The **Single neuron** workspace isolates
 the numerical solver from connections, plasticity, encoders, readouts, and classification so
 that a method can be characterized before network-level effects obscure the cause of a result.
 
-Open the side menu with the `☰` button and select **1. Single neuron**. A quick trace runs in
+Open the side menu with the `☰` button and select **Single neuron**. A quick trace runs in
 the GUI thread; the complete study runs in a worker thread and can be cancelled safely.
 
 ## Measurements
@@ -81,14 +81,14 @@ The supplied MATLAB figure reports a strong whole-range fit but a very weak onse
 using that fit as evidence for onset behavior would be unjustified without a denser near-rheobase
 protocol and uncertainty analysis.
 
-## Planned higher levels
+## Planned experiment sections
 
-The same side menu is the extension point for the remaining causal layers:
+The same side menu is the extension point for the remaining experiment sections:
 
-1. single neuron — implemented;
-2. fixed neuron population and fixed network dynamics;
-3. plasticity and weight evolution with the network held fixed;
-4. end-to-end training and task metrics across repeated seeds.
+- single neuron — implemented;
+- fixed neuron population and fixed network dynamics;
+- plasticity and weight evolution with the network held fixed;
+- end-to-end training and task metrics across repeated seeds.
 
-Network accuracy should be interpreted only after the lower-level error, stability, activity,
-and cost measurements are available.
+Network accuracy should be interpreted only after the single-neuron and fixed-network error,
+stability, activity, and cost measurements are available.

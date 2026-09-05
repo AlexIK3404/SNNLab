@@ -11,7 +11,7 @@ SNNLab is a Python research framework and desktop environment for experiments wi
 - **DCI / Diehl–Cook-like SNN** with Izhikevich excitatory and inhibitory populations, Input→E STDP, lateral inhibition, target-rate homeostasis, receptive fields, and SNN-native classification.
 - **Reservoir / LSM-like SNN** with fixed recurrent weights, selectable numerical integration methods, live spike visualization, and a readout for reservoir-computing experiments.
 - Seven numerical integration methods for Izhikevich neurons.
-- A level-based side menu and a **single-neuron ablation workspace** with event-corrected
+- A side menu for experiment sections and a **single-neuron ablation workspace** with event-corrected
   threshold reset, traces, f-I curves, ISI convergence, spike-time drift, compute cost,
   grid-reset controls, and the real/complex two-stage Euler comparison.
 - Live input image, spike raster, population-state view, activity history, receptive fields, evaluation diagnostics, and interactive values on plots.
@@ -111,7 +111,7 @@ snnlab-dci-regression --help
 
 Example experiment configurations are stored in `examples/` and can be imported from the GUI configuration menu.
 
-The methodology and output format of the first ablation level are described in
+The methodology and output format of the single-neuron study are described in
 [`docs/single_neuron_ablation.md`](docs/single_neuron_ablation.md).
 
 ## Checkpoints and continued training
@@ -131,8 +131,8 @@ Do not commit generated `runs/`, `.venv/`, `build/`, or `dist/` directories to G
 - Python CPU backend.
 - DCI classification is currently demonstrated on MNIST.
 - Reservoir experiments support architecture-specific analysis and readout evaluation.
-- The single-neuron numerical-method layer is implemented; fixed-population, plasticity,
-  and repeated-seed end-task ablation layers are planned extensions.
+- Single-neuron numerical experiments are implemented; fixed-population, plasticity,
+  and repeated-seed end-task studies are planned extensions.
 - Additional neuron models, arbitrary visual network construction, C++, CUDA, and remote execution are planned extensions.
 
 ## Project structure

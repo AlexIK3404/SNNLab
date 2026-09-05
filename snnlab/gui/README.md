@@ -7,7 +7,7 @@ Desktop-интерфейс PySide6 для настройки, запуска, в
 ## Structure
 
 - `app.py` — application entry point.
-- `main_window.py` — main window, collapsible level navigation, tabs, and lifecycle coordination.
+- `main_window.py` — main window, collapsible section navigation, tabs, and lifecycle coordination.
 - `session.py` — GUI-side experiment/session construction and state.
 - `event_bridge.py` / `workers.py` — Qt-safe bridge between background experiment execution and widgets.
 - `widgets/` — reusable views for the single-neuron ablation, parameters, live activity,

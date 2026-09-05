@@ -10,7 +10,7 @@ Reusable PySide6/pyqtgraph views used by the main window.
 - `evaluation_view.py` — evaluation protocol, confusion matrix, diagnostics, class responses.
 - `network_view.py` — architecture diagrams.
 - `metrics_view.py` — tabular experiment metrics.
-- `navigation_drawer.py` — collapsible navigation between ablation levels and network workspaces.
+- `navigation_drawer.py` — collapsible navigation between experiment sections.
 - `single_neuron_view.py` — complete single-neuron trace and numerical-ablation workspace.
 - `help_dialog.py` — extended study-mode explanations.
 

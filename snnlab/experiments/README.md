@@ -9,7 +9,7 @@ Experiment orchestration: sample schedules, training loops, progress events, and
 - `dci_trainer.py` — checkpoint-safe DCI training lifecycle.
 - `reservoir_runner.py` — Reservoir feature collection and readout lifecycle.
 - `single_neuron.py` — trace, event-reset, f-I, convergence, drift, and alpha-sweep
-  orchestration for the first ablation level; built-in smooth steps delegate to `core`.
+  orchestration for single-neuron ablation; built-in smooth steps delegate to `core`.
 - `base.py` — shared experiment history and deterministic sample-order helpers.
 
 This package coordinates components but should not duplicate neuron/synapse mathematics from `architectures/`.

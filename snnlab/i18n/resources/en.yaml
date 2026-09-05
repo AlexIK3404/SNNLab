@@ -47,16 +47,13 @@ gui:
   navigation:
     title: SNNLab sections
     open: Open side menu
-    levels: Ablation-study levels
     items:
-      single_neuron: 1. Single neuron
+      single_neuron: Single neuron
       network: Networks and training
-    roadmap: 'Next levels: neuron population → fixed network → plasticity → end task.
-      They will appear in this same menu.'
     busy_title: Experiment in progress
     busy_message: Finish or stop the current experiment before switching sections.
   single_neuron:
-    title: Level 1 — single neuron
+    title: Single-neuron experiments
     description: 'An isolated numerical-method test before connections, STDP, or a
       classifier are introduced. It measures trajectories, f–I curves, spike-period
       error, accumulated timing drift, convergence order, and compute cost. Event-corrected
