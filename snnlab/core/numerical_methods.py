@@ -21,7 +21,14 @@ class IzhikevichParameters:
     b: float = 0.20
 
 
-def _rhs(v: Array, u: Array, current: Array, params: IzhikevichParameters) -> tuple[Array, Array]:
+def izhikevich_rhs(
+    v: Array,
+    u: Array,
+    current: Array,
+    params: IzhikevichParameters,
+) -> tuple[Array, Array]:
+    """Evaluate the smooth Izhikevich ODE before threshold/reset handling."""
+
     dv = 0.04 * v * v + 5.0 * v + 140.0 - u + current
     du = params.a * (params.b * v - u)
     return dv, du
@@ -35,7 +42,7 @@ def explicit_euler(
 
     Выполняет один шаг явного метода Эйлера.
     """
-    dv, du = _rhs(v, u, current, params)
+    dv, du = izhikevich_rhs(v, u, current, params)
     return v + dt * dv, u + dt * du
 
 
@@ -115,10 +122,10 @@ def midpoint(
     Выполняет один шаг классического метода средней точки.
     """
     half_dt = 0.5 * dt
-    dv1, du1 = _rhs(v, u, current, params)
+    dv1, du1 = izhikevich_rhs(v, u, current, params)
     v_mid = v + half_dt * dv1
     u_mid = u + half_dt * du1
-    dv2, du2 = _rhs(v_mid, u_mid, current, params)
+    dv2, du2 = izhikevich_rhs(v_mid, u_mid, current, params)
     return v + dt * dv2, u + dt * du2
 
 
@@ -133,7 +140,7 @@ def semi_midpoint(
     half_dt = 0.5 * dt
     v_mid = v + half_dt * (0.04 * v * v + 5.0 * v + 140.0 - u + current)
     u_mid = u + half_dt * params.a * (params.b * v_mid - u)
-    dv2, du2 = _rhs(v_mid, u_mid, current, params)
+    dv2, du2 = izhikevich_rhs(v_mid, u_mid, current, params)
     return v + dt * dv2, u + dt * du2
 
 
@@ -149,7 +156,7 @@ def semi_implicit_midpoint(
     u_mid = (u + half_dt * params.a * params.b * v) / (1.0 + half_dt * params.a)
     v_tmp = v + half_dt * (0.04 * v * v + 5.0 * v + 140.0 - u_mid + current)
     v_mid = v + half_dt * (0.04 * v_tmp * v_tmp + 5.0 * v_tmp + 140.0 - u_mid + current)
-    dv2, du2 = _rhs(v_mid, u_mid, current, params)
+    dv2, du2 = izhikevich_rhs(v_mid, u_mid, current, params)
     return v + dt * dv2, u + dt * du2
 
 

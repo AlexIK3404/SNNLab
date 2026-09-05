@@ -25,6 +25,8 @@ components:
     midpoint: Midpoint
     semi_midpoint: Semi-explicit midpoint
     semi_implicit_midpoint: Semi-implicit midpoint
+    euler_composition_real: Two-stage Euler composition (real)
+    euler_composition_complex: Two-stage Euler composition (complex)
   architectures:
     reservoir: Reservoir / LSM-like
     dci: DCI / Diehl-Cook-like
@@ -42,6 +44,127 @@ gui:
   backend: Backend
   parameters: Experiment parameters
   help_mode: '[?] Learning mode'
+  navigation:
+    title: SNNLab sections
+    open: Open side menu
+    levels: Ablation-study levels
+    items:
+      single_neuron: 1. Single neuron
+      network: Networks and training
+    roadmap: 'Next levels: neuron population → fixed network → plasticity → end task.
+      They will appear in this same menu.'
+    busy_title: Experiment in progress
+    busy_message: Finish or stop the current experiment before switching sections.
+  single_neuron:
+    title: Level 1 — single neuron
+    description: 'An isolated numerical-method test before connections, STDP, or a
+      classifier are introduced. It measures trajectories, f–I curves, spike-period
+      error, accumulated timing drift, convergence order, and compute cost. Event-corrected
+      reset separates integrator error from the artificial error caused by snapping a
+      spike to the end of a timestep. Firing-rate feedback control is intentionally outside
+      this ablation.'
+    groups:
+      neuron: Izhikevich neuron parameters
+      simulation: Single run
+      ablation: Full-study axes
+    params:
+      preset: Neuron type
+      a: Parameter a
+      b: Parameter b
+      c: Reset c, mV
+      d: Reset increment d
+      threshold: Threshold, mV
+      current: Constant current I
+      duration: Duration, ms
+      burn_in: Discard initial, ms
+      dt: Step dt, ms
+      method: Numerical method
+      reset: Reset handling
+      composition_s: Coefficient s
+      composition_alpha: Coefficient α
+      methods: Methods to compare
+      dt_values: dt values, ms
+      current_range: I range (start, stop, step)
+      alpha_values: α values
+    presets:
+      regular_spiking: Regular spiking (RS)
+      fast_spiking: Fast spiking (FS)
+      intrinsically_bursting: Intrinsically bursting (IB)
+      chattering: Chattering (CH)
+      low_threshold_spiking: Low-threshold spiking (LTS)
+    reset_modes:
+      event: Event-corrected threshold crossing
+      grid: Grid-aligned reset at step end
+    buttons:
+      trace: Plot trace
+      study: Run full study
+      cancel: Stop
+    status:
+      ready: Set parameters, then plot a trace or run the full study.
+      trace_done: Trace calculated.
+      running: Running the full study…
+      cancelling: Stopping at the next safe boundary…
+      cancelled: Study stopped; partial results were not saved.
+      completed: Study completed and saved.
+      error: Study failed.
+      stage: '{stage}: {value}/{maximum}'
+    stages:
+      trace: Trace
+      convergence: ISI convergence and drift
+      grid_convergence: Grid-reset control run
+      fi_curve: f–I curves
+      alpha_sweep: α parameter sweep
+    tabs:
+      trace: Trace
+      convergence: ISI convergence
+      fi: f–I curve
+      alpha: Order vs α
+      summary: Summary
+    notes:
+      convergence: 'Log-log spike-period error relative to a small-step midpoint reference
+        with Richardson extrapolation. The slope over the three smallest steps estimates
+        the observed order.'
+      fi: 'Rate is measured from inter-spike intervals after burn-in. This is an open-loop
+        neuron characteristic; the MATLAB SNIC fit and controller are deliberately kept
+        separate from the integrator comparison.'
+      alpha: 'A two-stage Euler composition is second order when c₁+c₂=1 and c₁c₂=1/2.
+        No real pair solves both conditions; the conjugate pair 1/2±iα does so only at
+        α=1/2. LTE order is the primary test because finite-range ISI fits are more fragile.'
+      summary: 'Interpret order together with error, drift, stability, and cost. End-task
+        accuracy alone is not enough to characterize a numerical method.'
+    table:
+      method: Method
+      lte_order: LTE order
+      isi_order: ISI event
+      grid_order: ISI grid
+      error: ISI error, ms
+      drift: Drift, ms/s
+      cost: Step, ns
+      status: Stability
+      ok: no divergence
+      diverged: 'diverged: {count}'
+    axes:
+      time_ms: Time, ms
+      voltage_mv: Potential v, mV
+      recovery: Recovery u
+      dt_ms: Step dt, ms
+      isi_error_ms: '|period error|, ms'
+      current: Input current I
+      rate_hz: Rate, Hz
+      order: Observed order
+    legend:
+      local_order: Local-error order
+      period_order: Spike-period order
+    help:
+      dt: A smaller dt usually reduces numerical error but increases simulation cost.
+      reset: Grid reset rounds spike time to the grid and adds an O(dt) error unrelated to integrator order.
+      alpha: The complex composition reaches theoretical second order at α=0.5.
+    trace_metrics: '<b>Spikes:</b> {spikes} &nbsp; <b>Rate:</b> {rate} Hz &nbsp;
+      <b>Mean ISI:</b> {isi} ms &nbsp; <b>CV(ISI):</b> {cv} &nbsp; <b>Compute:</b>
+      {runtime} ms'
+    output_path: 'Results: {path}'
+    errors:
+      no_methods: Select at least one comparison method.
   tabs:
     live: Live
     network: Network

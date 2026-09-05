@@ -56,6 +56,25 @@ QComboBox QAbstractItemView {
     background: #222630;
     selection-background-color: #3f5f8f;
 }
+QListWidget#workspace_navigation {
+    background: transparent;
+    border: 0;
+    outline: 0;
+}
+QListWidget#workspace_navigation::item {
+    background: #222630;
+    border: 1px solid #303746;
+    border-radius: 6px;
+    padding: 10px 8px;
+    margin: 2px 0;
+}
+QListWidget#workspace_navigation::item:hover {
+    background: #2a3140;
+}
+QListWidget#workspace_navigation::item:selected {
+    background: #31557f;
+    border-color: #5b8fc8;
+}
 QTabWidget::pane {
     border: 1px solid #303542;
 }

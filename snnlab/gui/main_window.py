@@ -19,9 +19,12 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QStackedWidget,
     QTabWidget,
     QToolBar,
     QToolButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 from snnlab.core.events import FrameworkEvent
@@ -35,8 +38,10 @@ from snnlab.gui.session import (
 from snnlab.gui.widgets.evaluation_view import EvaluationView
 from snnlab.gui.widgets.live_view import LiveExperimentView
 from snnlab.gui.widgets.metrics_view import MetricsView
+from snnlab.gui.widgets.navigation_drawer import NavigationDrawer
 from snnlab.gui.widgets.network_view import NetworkView
 from snnlab.gui.widgets.parameter_panel import ParameterPanel
+from snnlab.gui.widgets.single_neuron_view import SingleNeuronView
 from snnlab.gui.widgets.training_view import TrainingView
 from snnlab.gui.workers import ExperimentWorker
 from snnlab.i18n import Translator
@@ -71,6 +76,8 @@ class MainWindow(QMainWindow):
         self._close_when_finished = False
         self._current_operation: str | None = None
         self._last_traceback: str | None = None
+        self._active_workspace = "network"
+        self._network_parameter_dock_was_visible = True
         self._settings = QSettings("SNNLab", "SNNLab")
         self._layout_refresh_timer = QTimer(self)
         self._layout_refresh_timer.setSingleShot(True)
@@ -83,6 +90,7 @@ class MainWindow(QMainWindow):
         self.event_bridge.event_received.connect(self._handle_framework_event)
 
         self._build_toolbar()
+        self._build_navigation_dock()
         self._build_parameter_dock()
         self._build_central_tabs()
         self._build_status_bar()
@@ -94,6 +102,10 @@ class MainWindow(QMainWindow):
         self.fit_readout_button.setVisible(False)
         self._apply_default_window_geometry()
         self.restore_layout_state()
+        saved_workspace = str(self._settings.value("main/workspace", "network"))
+        if saved_workspace not in {"single_neuron", "network"}:
+            saved_workspace = "network"
+        self._select_workspace(saved_workspace, hide_drawer=True, force=True)
         self._schedule_visible_tab_refresh()
 
     def _build_toolbar(self) -> None:
@@ -122,6 +134,13 @@ class MainWindow(QMainWindow):
         self.addToolBarBreak()
         self.addToolBar(self.action_toolbar)
 
+        self.navigation_button = QToolButton()
+        self.navigation_button.setText("☰")
+        self.navigation_button.setObjectName("navigation_button")
+        self.navigation_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.section_title_label = QLabel()
+        self.section_title_label.setObjectName("section_title")
+        self.section_title_label.setStyleSheet("font-weight: 700; padding: 0 8px;")
         self.architecture_label = QLabel()
         self.architecture_combo = QComboBox()
         self.task_label = QLabel()
@@ -134,20 +153,28 @@ class MainWindow(QMainWindow):
         self.language_combo.addItem("EN", "en")
         self.help_mode_checkbox = QCheckBox()
 
+        self.selector_toolbar.addWidget(self.navigation_button)
+        self.selector_toolbar.addWidget(self.section_title_label)
+        self.selector_toolbar.addSeparator()
+
         selector_groups = (
             (self.architecture_label, self.architecture_combo),
             (self.task_label, self.task_combo),
             (self.backend_label, self.backend_combo),
             (self.language_label, self.language_combo),
         )
+        self._network_selector_actions: list[QAction] = []
         for group_index, (label, editor) in enumerate(selector_groups):
             if group_index:
-                self.selector_toolbar.addSeparator()
-            self.selector_toolbar.addWidget(label)
-            self.selector_toolbar.addWidget(editor)
+                separator = self.selector_toolbar.addSeparator()
+                if group_index < 3:
+                    self._network_selector_actions.append(separator)
+            label_action = self.selector_toolbar.addWidget(label)
+            editor_action = self.selector_toolbar.addWidget(editor)
+            if group_index < 3:
+                self._network_selector_actions.extend((label_action, editor_action))
         self.selector_toolbar.addSeparator()
         self.selector_toolbar.addWidget(self.help_mode_checkbox)
-
         self.start_button = QPushButton()
         self.pause_button = QPushButton()
         self.resume_button = QPushButton()
@@ -193,6 +220,17 @@ class MainWindow(QMainWindow):
                 self.action_toolbar.addSeparator()
             self.action_toolbar.addWidget(widget)
 
+    def _build_navigation_dock(self) -> None:
+        self.navigation_drawer = NavigationDrawer(self.translator)
+        self.navigation_dock = QDockWidget()
+        self.navigation_dock.setObjectName("navigation_dock")
+        self.navigation_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.navigation_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.navigation_dock.setMinimumWidth(250)
+        self.navigation_dock.setWidget(self.navigation_drawer)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.navigation_dock)
+        self.navigation_dock.hide()
+
     def _build_parameter_dock(self) -> None:
         self.parameter_panel = ParameterPanel(self.translator)
         self.parameter_dock = QDockWidget()
@@ -221,7 +259,16 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.evaluation_view, "")
         self.tabs.addTab(self.metrics_view, "")
         self.tabs.addTab(self.log_view, "")
-        self.setCentralWidget(self.tabs)
+
+        self.network_workspace = QWidget()
+        network_layout = QVBoxLayout(self.network_workspace)
+        network_layout.setContentsMargins(0, 0, 0, 0)
+        network_layout.addWidget(self.tabs)
+        self.single_neuron_view = SingleNeuronView(self.translator)
+        self.workspace_stack = QStackedWidget()
+        self.workspace_stack.addWidget(self.single_neuron_view)
+        self.workspace_stack.addWidget(self.network_workspace)
+        self.setCentralWidget(self.workspace_stack)
 
     def _build_status_bar(self) -> None:
         self.status_label = QLabel()
@@ -233,6 +280,9 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.progress)
 
     def _connect_actions(self) -> None:
+        self.navigation_button.clicked.connect(self._toggle_navigation)
+        self.navigation_drawer.workspace_selected.connect(self._workspace_selected)
+        self.single_neuron_view.running_changed.connect(self._single_neuron_running_changed)
         self.architecture_combo.currentIndexChanged.connect(self._architecture_changed)
         self.language_combo.currentIndexChanged.connect(self._language_changed)
         self.help_mode_checkbox.toggled.connect(self._set_help_mode)
@@ -253,6 +303,68 @@ class MainWindow(QMainWindow):
         self.save_diagnostics_action.triggered.connect(self.save_diagnostic_report)
         self.tabs.currentChanged.connect(lambda *_: self._schedule_visible_tab_refresh())
 
+    def _toggle_navigation(self) -> None:
+        self.navigation_dock.setVisible(not self.navigation_dock.isVisible())
+
+    def _workspace_selected(self, workspace_id: str) -> None:
+        self._select_workspace(workspace_id, hide_drawer=True)
+
+    def _select_workspace(
+        self,
+        workspace_id: str,
+        *,
+        hide_drawer: bool,
+        force: bool = False,
+    ) -> None:
+        if workspace_id not in {"single_neuron", "network"}:
+            return
+        if not force and workspace_id != self._active_workspace and self._any_worker_active():
+            QMessageBox.information(
+                self,
+                self.translator.tr("gui.navigation.busy_title"),
+                self.translator.tr("gui.navigation.busy_message"),
+            )
+            self.navigation_drawer.set_current(self._active_workspace)
+            return
+
+        if self._active_workspace == "network" and workspace_id == "single_neuron":
+            # isVisible() is false while the main window itself is still hidden;
+            # isHidden() preserves whether the dock was explicitly closed.
+            self._network_parameter_dock_was_visible = not self.parameter_dock.isHidden()
+        self._active_workspace = workspace_id
+        if workspace_id == "single_neuron":
+            self.workspace_stack.setCurrentWidget(self.single_neuron_view)
+        else:
+            self.workspace_stack.setCurrentWidget(self.network_workspace)
+        self.navigation_drawer.set_current(workspace_id)
+        self._refresh_workspace_chrome()
+        if hide_drawer:
+            self.navigation_dock.hide()
+        self._schedule_visible_tab_refresh()
+
+    def _refresh_workspace_chrome(self) -> None:
+        is_network = self._active_workspace == "network"
+        for action in self._network_selector_actions:
+            action.setVisible(is_network)
+        self.action_toolbar.setVisible(is_network)
+        if is_network:
+            if self._network_parameter_dock_was_visible:
+                self.parameter_dock.show()
+        else:
+            self.parameter_dock.hide()
+        self.status_label.setVisible(is_network)
+        self.progress.setVisible(is_network)
+        title_key = (
+            "gui.navigation.items.network" if is_network else "gui.navigation.items.single_neuron"
+        )
+        self.section_title_label.setText(self.translator.tr(title_key))
+
+    def _single_neuron_running_changed(self, _running: bool) -> None:
+        self.navigation_drawer.workspace_list.setEnabled(not self._any_worker_active())
+
+    def _any_worker_active(self) -> bool:
+        return self._worker_is_active() or self.single_neuron_view.is_running()
+
     def _set_help_mode(self, enabled: bool) -> None:
         """Applies learning/help mode to all GUI panels.
 
@@ -260,7 +372,12 @@ class MainWindow(QMainWindow):
         """
         value = bool(enabled)
         self.parameter_panel.set_help_mode(value)
-        for view in (self.live_view, self.training_view, self.evaluation_view):
+        for view in (
+            self.live_view,
+            self.training_view,
+            self.evaluation_view,
+            self.single_neuron_view,
+        ):
             if hasattr(view, "set_help_mode"):
                 view.set_help_mode(value)
 
@@ -271,6 +388,7 @@ class MainWindow(QMainWindow):
         self.backend_label.setText(self.translator.tr("gui.backend"))
         self.language_label.setText(self.translator.tr("app.language"))
         self.help_mode_checkbox.setText(self.translator.tr("gui.help_mode"))
+        self.navigation_button.setToolTip(self.translator.tr("gui.navigation.open"))
 
         self.start_button.setText(self.translator.tr("gui.buttons.start"))
         self.pause_button.setText(self.translator.tr("gui.buttons.pause"))
@@ -304,6 +422,9 @@ class MainWindow(QMainWindow):
         )
 
         self.parameter_dock.setWindowTitle(self.translator.tr("gui.parameters"))
+        self.navigation_dock.setWindowTitle(self.translator.tr("gui.navigation.title"))
+        self.navigation_drawer.retranslate(self.translator)
+        self.single_neuron_view.retranslate(self.translator)
         self.tabs.setTabText(0, self.translator.tr("gui.tabs.live"))
         self.tabs.setTabText(1, self.translator.tr("gui.tabs.network"))
         self._refresh_training_tab_text()
@@ -317,6 +438,7 @@ class MainWindow(QMainWindow):
         self.training_view.retranslate(self.translator)
         self.evaluation_view.retranslate(self.translator)
         self._set_help_mode(self.help_mode_checkbox.isChecked())
+        self._refresh_workspace_chrome()
         self._refresh_status_text()
 
     def start_new_run(self) -> None:
@@ -741,6 +863,7 @@ class MainWindow(QMainWindow):
         self.architecture_combo.setEnabled(not active)
         self.task_combo.setEnabled(not active)
         self.backend_combo.setEnabled(not active)
+        self.navigation_drawer.workspace_list.setEnabled(not self._any_worker_active())
 
     def _worker_is_active(self) -> bool:
         return self._thread is not None and self._thread.isRunning()
@@ -981,6 +1104,7 @@ class MainWindow(QMainWindow):
         pairs: list[tuple[str, Any]] = []
         for prefix, view, names in (
             ("live", self.live_view, ("main_splitter", "top_splitter", "bottom_splitter")),
+            ("single_neuron", self.single_neuron_view, ("main_splitter",)),
             (
                 "evaluation",
                 self.evaluation_view,
@@ -1014,7 +1138,11 @@ class MainWindow(QMainWindow):
         """
         if not hasattr(self, "tabs"):
             return
-        widget = self.tabs.currentWidget()
+        widget = (
+            self.single_neuron_view
+            if self._active_workspace == "single_neuron"
+            else self.tabs.currentWidget()
+        )
         if widget is None:
             return
         layout = widget.layout()
@@ -1041,8 +1169,12 @@ class MainWindow(QMainWindow):
         Восстанавливает стандартную раскладку dock-панелей и splitter-ов.
         """
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.parameter_dock)
-        self.parameter_dock.show()
+        if self._active_workspace == "network":
+            self.parameter_dock.show()
+            self._network_parameter_dock_was_visible = True
         self.resizeDocks([self.parameter_dock], [380], Qt.Orientation.Horizontal)
+        if hasattr(self.single_neuron_view, "main_splitter"):
+            self.single_neuron_view.main_splitter.setSizes([350, 1050])
         if hasattr(self.live_view, "main_splitter"):
             self.live_view.main_splitter.setSizes([520, 380])
             self.live_view.top_splitter.setSizes([350, 900])
@@ -1066,6 +1198,7 @@ class MainWindow(QMainWindow):
         """
         self._settings.setValue("main/geometry", self.saveGeometry())
         self._settings.setValue("main/window_state", self.saveState())
+        self._settings.setValue("main/workspace", self._active_workspace)
         for key, splitter in self._splitters():
             self._settings.setValue(f"splitters/{key}", splitter.saveState())
 
@@ -1100,6 +1233,20 @@ class MainWindow(QMainWindow):
             self._schedule_visible_tab_refresh()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        if self.single_neuron_view.is_running():
+            answer = QMessageBox.question(
+                self,
+                self.translator.tr("gui.dialogs.exit_title"),
+                self.translator.tr("gui.dialogs.exit_running"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            if not self.single_neuron_view.shutdown():
+                event.ignore()
+                return
         if self._worker_is_active() and self.current_control is not None:
             answer = QMessageBox.question(
                 self,

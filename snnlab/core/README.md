@@ -6,7 +6,8 @@ Shared low-level building blocks used across architectures and experiment types.
 
 ## Contents
 
-- numerical integration methods for Izhikevich neurons;
+- numerical integration methods and a shared smooth Izhikevich right-hand side for
+  network and isolated-neuron experiments;
 - input encoders;
 - framework events/observer interfaces;
 - metrics helpers;
