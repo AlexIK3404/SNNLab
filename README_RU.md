@@ -43,7 +43,7 @@ python -m pip install --upgrade pip
 Находясь в папке с wheel, установи его вместе с GUI и поддержкой MNIST:
 
 ```powershell
-python -m pip install "./snnlab-1.0.0-py3-none-any.whl[gui,mnist]"
+python -m pip install "./snnlab-1.1.0-py3-none-any.whl[gui,mnist]"
 snnlab-gui
 ```
 
@@ -89,7 +89,7 @@ python -m pip install .
 или из wheel:
 
 ```powershell
-python -m pip install ./snnlab-1.0.0-py3-none-any.whl
+python -m pip install ./snnlab-1.1.0-py3-none-any.whl
 ```
 
 Так будут установлены ядро SNNLab, NumPy, scikit-learn и PyYAML. Для GUI и MNIST нужны extras `gui` и `mnist`.
