@@ -151,7 +151,41 @@ def test_full_study_runs_both_reset_controls_and_persists(tmp_path) -> None:
 
     assert study.convergence.reset_mode == "event"
     assert study.grid_convergence.reset_mode == "grid"
+    assert [item.method_id for item in study.comparison_traces] == ["midpoint"]
+    np.testing.assert_allclose(
+        study.comparison_traces[0].trace.time_ms,
+        study.trace.time_ms,
+    )
     assert (run_dir / "study.json").is_file()
     assert (run_dir / "environment.json").is_file()
     with np.load(run_dir / "trace.npz") as trace:
         np.testing.assert_allclose(trace["spike_times_ms"], study.trace.spike_times_ms)
+        np.testing.assert_allclose(
+            trace["comparison__midpoint__voltage_mv"],
+            study.comparison_traces[0].trace.voltage_mv,
+        )
+
+
+def test_full_study_records_selected_methods_on_one_time_grid() -> None:
+    config = SingleNeuronConfig(
+        duration_ms=500.0,
+        burn_in_ms=100.0,
+        dt_ms=0.2,
+        method_id="explicit_euler",
+    )
+    study = run_single_neuron_study(
+        config,
+        method_ids=("explicit_euler", "midpoint"),
+        dt_values_ms=(0.2, 0.1),
+        currents=(12.0,),
+        alpha_values=(0.5,),
+    )
+
+    assert [item.method_id for item in study.comparison_traces] == [
+        "explicit_euler",
+        "midpoint",
+    ]
+    np.testing.assert_allclose(
+        study.comparison_traces[0].trace.time_ms,
+        study.comparison_traces[1].trace.time_ms,
+    )

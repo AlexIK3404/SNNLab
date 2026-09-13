@@ -42,6 +42,9 @@ def save_single_neuron_study(
             "grid_convergence": asdict(study.grid_convergence),
             "fi_curves": [asdict(curve) for curve in study.fi_curves],
             "alpha_sweep": [asdict(point) for point in study.alpha_sweep],
+            "comparison_trace_methods": [
+                method_trace.method_id for method_trace in study.comparison_traces
+            ],
         },
     )
     save_json(target / "environment.json", collect_environment())
@@ -49,13 +52,19 @@ def save_single_neuron_study(
     trace_path = target / "trace.npz"
     temporary = target / "trace.npz.tmp"
     with temporary.open("wb") as stream:
-        np.savez_compressed(
-            stream,
-            time_ms=study.trace.time_ms,
-            voltage_mv=study.trace.voltage_mv,
-            recovery=study.trace.recovery,
-            spike_times_ms=study.trace.spike_times_ms,
-        )
+        arrays = {
+            "time_ms": study.trace.time_ms,
+            "voltage_mv": study.trace.voltage_mv,
+            "recovery": study.trace.recovery,
+            "spike_times_ms": study.trace.spike_times_ms,
+        }
+        for method_trace in study.comparison_traces:
+            prefix = f"comparison__{method_trace.method_id}__"
+            arrays[f"{prefix}time_ms"] = method_trace.trace.time_ms
+            arrays[f"{prefix}voltage_mv"] = method_trace.trace.voltage_mv
+            arrays[f"{prefix}recovery"] = method_trace.trace.recovery
+            arrays[f"{prefix}spike_times_ms"] = method_trace.trace.spike_times_ms
+        np.savez_compressed(stream, **arrays)
         stream.flush()
         os.fsync(stream.fileno())
     os.replace(temporary, trace_path)

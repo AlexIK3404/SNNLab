@@ -199,6 +199,14 @@ class AlphaSweepPoint:
     observed_period_order: float
 
 
+@dataclass(frozen=True, slots=True)
+class MethodTrace:
+    """A recorded trajectory identified by its numerical method."""
+
+    method_id: str
+    trace: SingleNeuronTrace
+
+
 @dataclass(slots=True)
 class SingleNeuronStudy:
     config: SingleNeuronConfig
@@ -208,6 +216,7 @@ class SingleNeuronStudy:
     grid_convergence: ConvergenceStudy
     fi_curves: tuple[FICurve, ...]
     alpha_sweep: tuple[AlphaSweepPoint, ...]
+    comparison_traces: tuple[MethodTrace, ...] = ()
 
 
 def neuron_preset(preset_id: str) -> NeuronParameters:
@@ -787,11 +796,29 @@ def run_single_neuron_study(
 ) -> SingleNeuronStudy:
     """Run the complete single-neuron layer of the numerical-method ablation."""
 
+    if not method_ids:
+        raise ValueError("Single-neuron study requires at least one comparison method")
+    for method_id in method_ids:
+        if method_id not in INTEGRATORS:
+            raise ValueError(f"Unknown single-neuron integrator: {method_id!r}")
+
     if progress_callback is not None:
-        progress_callback("trace", 0, 1)
+        progress_callback("trace", 0, len(method_ids))
     trace = simulate_single_neuron(config, cancel_callback=cancel_callback)
-    if progress_callback is not None:
-        progress_callback("trace", 1, 1)
+    comparison_traces: list[MethodTrace] = []
+    for index, method_id in enumerate(method_ids, start=1):
+        _check_cancelled(cancel_callback)
+        method_trace = (
+            trace
+            if method_id == config.method_id
+            else simulate_single_neuron(
+                replace(config, method_id=method_id),
+                cancel_callback=cancel_callback,
+            )
+        )
+        comparison_traces.append(MethodTrace(method_id=method_id, trace=method_trace))
+        if progress_callback is not None:
+            progress_callback("trace", index, len(method_ids))
     event_config = replace(config, reset_mode="event")
     reference_data = _reference_period(event_config, dt_values_ms, cancel_callback)
     convergence = run_convergence_study(
@@ -839,4 +866,5 @@ def run_single_neuron_study(
         grid_convergence=grid_convergence,
         fi_curves=curves,
         alpha_sweep=alpha_sweep,
+        comparison_traces=tuple(comparison_traces),
     )

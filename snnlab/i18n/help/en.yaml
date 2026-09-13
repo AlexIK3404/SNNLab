@@ -71,6 +71,113 @@ simulation:
     short: Time step of the numerical method, expressed in model milliseconds.
     long: Smaller dt usually increases computational cost and can change spike timing
       and numerical stability.
+single_neuron:
+  workspace:
+    title: Single-neuron experiments
+    short: Isolated numerical-method comparison before synapses, STDP, or a classifier.
+    long: This workspace measures trajectories, f–I curves, inter-spike-interval error,
+      timing drift, convergence order, stability, and step cost. Event-corrected reset
+      separates integrator error from rounding a spike to a time-step boundary. Firing-rate
+      feedback control is outside this ablation.
+  preset:
+    title: Neuron type
+    short: Selects a standard Izhikevich a, b, c, and d parameter set.
+    long: A preset only fills those four fields. You can edit any value afterwards;
+      calculations use the values currently shown.
+  threshold:
+    title: Spike threshold
+    short: Value of v whose crossing registers a spike.
+    long: A crossing triggers v←c and u←u+d. Event-corrected reset locates the crossing
+      time inside the step.
+  current:
+    title: Constant input current I
+    short: Constant external current in the Izhikevich right-hand side.
+    long: It selects the neuron's operating point. If I is too small, the neuron may
+      not spike and ISI-based measurements are undefined.
+  duration:
+    title: Trajectory duration
+    short: Total model time of one simulation.
+    long: Longer runs provide more spikes and a stronger ISI estimate, while compute
+      time grows proportionally.
+  burn_in:
+    title: Discarded initial interval
+    short: Initial transient excluded from firing-rate and ISI measurements.
+    long: The plot still shows the full trajectory, but metrics only use spikes after
+      this time.
+  method:
+    title: Numerical method for one trajectory
+    short: Method run by the “One trajectory” button.
+    long: “Compare methods” instead uses every checked method below and records their
+      trajectories at the same dt.
+  reset:
+    title: Reset handling
+    short: Controls when a threshold crossing is registered within a time step.
+    long: Event reset refines the spike time and integrates the remainder after v←c,
+      u←u+d. Grid reset assigns the spike to the step end and adds an independent O(dt)
+      timing error.
+  composition_s:
+    title: Real-composition parameter s
+    short: Sets the two sequential Euler substeps s·dt and (1−s)·dt.
+    long: No real s can satisfy both second-order conditions; the control remains
+      available to test that result directly.
+  composition_alpha:
+    title: Complex-composition parameter α
+    short: Sets conjugate coefficients 1/2+iα and 1/2−iα.
+    long: The second-order conditions hold at α=1/2. The order-vs-α plot should show
+      a peak near order two at that point.
+  methods:
+    title: Methods to compare
+    short: Checked methods participate in the complete protocol and trajectory comparison.
+    long: Every trajectory shares I, duration, reset handling, and dt from “Single run”.
+      After calculation, each curve can be hidden independently.
+  dt_values:
+    title: dt values
+    short: Step sizes used to estimate error and convergence slope.
+    long: At least two positive values are required. Several successively smaller
+      steps make the order estimate more reliable.
+  current_range:
+    title: f–I current range
+    short: Three values “start, stop, step” used to build firing rate versus I.
+    long: Every selected method runs once for every current, so a fine increment can
+      substantially increase study time.
+  alpha_values:
+    title: α values
+    short: Test points for the complex two-stage Euler composition.
+    long: Include α=0.5 and values on either side to verify visually that second order
+      occurs only at the special point.
+  trace:
+    title: State trajectories
+    short: Membrane potential v(t) and recovery variable u(t).
+    long: “One trajectory” shows the drop-down method. “Compare methods” shows all
+      checked methods at exactly the same dt; checkboxes above the plot toggle individual
+      curves. Hovering reports the selected point.
+  convergence:
+    title: ISI convergence
+    short: ISI (inter-spike interval) is the time between consecutive spikes.
+    long: The y-axis is absolute period error relative to a reference and the x-axis
+      is dt. A log–log slope estimates observed order. O(dt) and O(dt²) lines provide
+      visual first- and second-order references.
+  fi:
+    title: f–I curve
+    short: Steady firing rate f as a function of constant input current I.
+    long: Rate is estimated from ISIs after burn-in. This is an open-loop neuron
+      characteristic; the MATLAB feedback controller and weak onset-only SNIC fit are
+      deliberately kept separate.
+  alpha:
+    title: Order versus α
+    short: Tests the complex two-stage composition at different α values.
+    long: The conditions c₁+c₂=1 and c₁c₂=1/2 have no real solution but hold for
+      1/2±iα at α=1/2. LTE is the primary test; the ISI estimate also measures impact
+      on spike timing.
+  summary:
+    title: Method-comparison summary
+    short: The table combines accuracy, drift, stability, and compute cost.
+    long: 'LTE order estimates p when local error scales as dt^(p+1); ISI event is
+      inter-spike-interval error order with event reset; ISI grid repeats it with grid
+      reset; ISI error is measured at the finest dt; drift is accumulated spike-time
+      offset in milliseconds per simulated second; step is mean per-step cost on this
+      machine. Lower error, drift, and cost are better; order should match theory; no
+      case should diverge.'
 dci:
   n_exc:
     title: Excitatory population size

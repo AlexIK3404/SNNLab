@@ -78,6 +78,7 @@ class MainWindow(QMainWindow):
         self._last_traceback: str | None = None
         self._active_workspace = "network"
         self._network_parameter_dock_was_visible = True
+        self._navigation_replaced_parameter_dock = False
         self._settings = QSettings("SNNLab", "SNNLab")
         self._layout_refresh_timer = QTimer(self)
         self._layout_refresh_timer.setSingleShot(True)
@@ -201,6 +202,7 @@ class MainWindow(QMainWindow):
         self.config_menu.addAction(self.save_diagnostics_action)
         self.config_button.setMenu(self.config_menu)
 
+        self._network_action_actions: list[QAction] = []
         for index, widget in enumerate(
             (
                 self.start_button,
@@ -217,8 +219,8 @@ class MainWindow(QMainWindow):
             )
         ):
             if index in (4, 6, 7, 9):
-                self.action_toolbar.addSeparator()
-            self.action_toolbar.addWidget(widget)
+                self._network_action_actions.append(self.action_toolbar.addSeparator())
+            self._network_action_actions.append(self.action_toolbar.addWidget(widget))
 
     def _build_navigation_dock(self) -> None:
         self.navigation_drawer = NavigationDrawer(self.translator)
@@ -227,6 +229,7 @@ class MainWindow(QMainWindow):
         self.navigation_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
         self.navigation_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.navigation_dock.setMinimumWidth(250)
+        self.navigation_dock.setMaximumWidth(420)
         self.navigation_dock.setWidget(self.navigation_drawer)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.navigation_dock)
         self.navigation_dock.hide()
@@ -265,6 +268,13 @@ class MainWindow(QMainWindow):
         network_layout.setContentsMargins(0, 0, 0, 0)
         network_layout.addWidget(self.tabs)
         self.single_neuron_view = SingleNeuronView(self.translator)
+        self._single_neuron_actions: list[QAction] = [self.action_toolbar.addSeparator()]
+        for widget in (
+            self.single_neuron_view.trace_button,
+            self.single_neuron_view.study_button,
+            self.single_neuron_view.cancel_button,
+        ):
+            self._single_neuron_actions.append(self.action_toolbar.addWidget(widget))
         self.workspace_stack = QStackedWidget()
         self.workspace_stack.addWidget(self.single_neuron_view)
         self.workspace_stack.addWidget(self.network_workspace)
@@ -281,6 +291,8 @@ class MainWindow(QMainWindow):
 
     def _connect_actions(self) -> None:
         self.navigation_button.clicked.connect(self._toggle_navigation)
+        self.navigation_dock.visibilityChanged.connect(self._navigation_visibility_changed)
+        self.parameter_dock.visibilityChanged.connect(self._parameter_visibility_changed)
         self.navigation_drawer.workspace_selected.connect(self._workspace_selected)
         self.single_neuron_view.running_changed.connect(self._single_neuron_running_changed)
         self.architecture_combo.currentIndexChanged.connect(self._architecture_changed)
@@ -306,6 +318,21 @@ class MainWindow(QMainWindow):
     def _toggle_navigation(self) -> None:
         self.navigation_dock.setVisible(not self.navigation_dock.isVisible())
 
+    def _navigation_visibility_changed(self, visible: bool) -> None:
+        """Temporarily replace, then faithfully restore, network parameters."""
+        if visible:
+            if self._active_workspace == "network":
+                self._navigation_replaced_parameter_dock = not self.parameter_dock.isHidden()
+                self.parameter_dock.hide()
+            return
+        if self._active_workspace == "network" and self._navigation_replaced_parameter_dock:
+            self.parameter_dock.show()
+        self._navigation_replaced_parameter_dock = False
+
+    def _parameter_visibility_changed(self, visible: bool) -> None:
+        if self._active_workspace == "network" and not self.navigation_dock.isVisible():
+            self._network_parameter_dock_was_visible = bool(visible)
+
     def _workspace_selected(self, workspace_id: str) -> None:
         self._select_workspace(workspace_id, hide_drawer=True)
 
@@ -327,6 +354,9 @@ class MainWindow(QMainWindow):
             self.navigation_drawer.set_current(self._active_workspace)
             return
 
+        if hide_drawer and self.navigation_dock.isVisible():
+            self.navigation_dock.hide()
+
         if self._active_workspace == "network" and workspace_id == "single_neuron":
             # isVisible() is false while the main window itself is still hidden;
             # isHidden() preserves whether the dock was explicitly closed.
@@ -338,17 +368,21 @@ class MainWindow(QMainWindow):
             self.workspace_stack.setCurrentWidget(self.network_workspace)
         self.navigation_drawer.set_current(workspace_id)
         self._refresh_workspace_chrome()
-        if hide_drawer:
-            self.navigation_dock.hide()
         self._schedule_visible_tab_refresh()
 
     def _refresh_workspace_chrome(self) -> None:
         is_network = self._active_workspace == "network"
         for action in self._network_selector_actions:
             action.setVisible(is_network)
-        self.action_toolbar.setVisible(is_network)
+        for action in self._network_action_actions:
+            action.setVisible(is_network)
+        for action in self._single_neuron_actions:
+            action.setVisible(not is_network)
+        self.action_toolbar.setVisible(True)
         if is_network:
-            if self._network_parameter_dock_was_visible:
+            if self.navigation_dock.isVisible():
+                self.parameter_dock.hide()
+            elif self._network_parameter_dock_was_visible:
                 self.parameter_dock.show()
         else:
             self.parameter_dock.hide()
@@ -1174,7 +1208,7 @@ class MainWindow(QMainWindow):
             self._network_parameter_dock_was_visible = True
         self.resizeDocks([self.parameter_dock], [380], Qt.Orientation.Horizontal)
         if hasattr(self.single_neuron_view, "main_splitter"):
-            self.single_neuron_view.main_splitter.setSizes([350, 1050])
+            self.single_neuron_view.main_splitter.setSizes([430, 970])
         if hasattr(self.live_view, "main_splitter"):
             self.live_view.main_splitter.setSizes([520, 380])
             self.live_view.top_splitter.setSizes([350, 900])

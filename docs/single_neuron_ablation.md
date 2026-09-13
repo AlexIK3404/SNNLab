@@ -4,14 +4,20 @@ The **Single neuron** workspace isolates
 the numerical solver from connections, plasticity, encoders, readouts, and classification so
 that a method can be characterized before network-level effects obscure the cause of a result.
 
-Open the side menu with the `☰` button and select **Single neuron**. A quick trace runs in
-the GUI thread; the complete study runs in a worker thread and can be cancelled safely.
+Open the side menu with the `☰` button and select **Single neuron**. The run controls remain in
+the top toolbar, so the parameter form never has to be scrolled to start or stop work. **One
+trajectory** runs the method selected in the single-run form. **Compare methods** runs the
+complete protocol for the checked methods in a worker thread and can be cancelled safely.
+
+Learning mode adds contextual `?` buttons beside every parameter and result tab. Explanatory
+paragraphs stay out of the normal workspace. All plots support pan/zoom and report exact curve
+coordinates on hover.
 
 ## Measurements
 
 The complete study records:
 
-- membrane-potential and recovery-variable traces;
+- membrane-potential and recovery-variable traces for every selected method at the same `dt`;
 - spike count, firing rate, mean ISI, and ISI coefficient of variation after burn-in;
 - f-I curves for every selected method;
 - spike-period error over a configurable `dt` grid;
@@ -25,7 +31,13 @@ Every complete GUI run is written below `runs/gui/single_neuron/` as:
 
 - `study.json` — configuration and all scalar/curve results;
 - `environment.json` — SNNLab, Git, Python, platform, and package versions;
-- `trace.npz` — full time, voltage, recovery, and spike-time arrays.
+- `trace.npz` — the single-run arrays plus per-method comparison time, voltage, recovery, and
+  spike-time arrays.
+
+The **Trajectories** tab explicitly states the shared `dt`, current, and reset mode. Each method
+has a checkbox, making overlapping trajectories independently visible instead of forcing every
+curve into one unreadable plot. The convergence plot includes `O(dt)` and `O(dt²)` guide lines;
+these are visual slope references, not fitted results.
 
 Generated run directories are intentionally ignored by Git.
 
@@ -39,7 +51,8 @@ With **event-corrected reset**, SNNLab brackets the threshold crossing inside th
 its time using the selected integrator, applies `(v, u) <- (c, u + d)` at that event, and
 integrates the remainder of the timestep. The complete study always uses this mode for its
 primary results and runs grid reset separately as a control. The reset choice in the single-run
-panel affects only the displayed trace.
+panel controls both the one-trajectory result and the same-`dt` trajectory comparison; it does
+not replace the paired event/grid convergence measurements.
 
 ## Reference and order estimates
 
