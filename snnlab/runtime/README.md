@@ -10,6 +10,7 @@ Persistence and run-lifecycle infrastructure shared by experiments and the GUI.
 - `model_snapshot.py` — inference/evaluation-oriented model snapshots;
 - `control.py` — pause/stop/resume control flags;
 - `experiment_io.py` — experiment configuration, metadata, logs, and run artifacts.
+- `single_neuron_io.py` — atomic metadata and trace persistence for single-neuron studies.
 
 A checkpoint and a model snapshot are intentionally different concepts: checkpoints preserve training continuation state, while model snapshots are intended for using an already obtained model.
 

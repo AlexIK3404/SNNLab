@@ -8,6 +8,10 @@ def test_locale_switch_and_help() -> None:
     assert "assignment" in translator.help_topic("evaluation.assignment_samples")["title"].lower()
     assert "homeostatic" in translator.help_topic("evaluation.homeostasis_mode")["short"].lower()
     assert "assignment" in translator.help_topic("evaluation.assignment_policy")["title"].lower()
+    assert translator.tr("gui.navigation.items.single_neuron") == "Single neuron"
+    assert (
+        "complex" in translator.tr("components.numerical_methods.euler_composition_complex").lower()
+    )
 
     translator.set_locale("ru")
     assert translator.tr("app.language") == "Язык"
@@ -15,3 +19,40 @@ def test_locale_switch_and_help() -> None:
     assert "назначения" in translator.help_topic("evaluation.assignment_samples")["title"].lower()
     assert "гомеостат" in translator.help_topic("evaluation.homeostasis_mode")["short"].lower()
     assert "назначения" in translator.help_topic("evaluation.assignment_policy")["title"].lower()
+    assert translator.tr("gui.navigation.items.single_neuron") == "Один нейрон"
+    assert (
+        "комплекс"
+        in translator.tr("components.numerical_methods.euler_composition_complex").lower()
+    )
+
+
+def test_single_neuron_learning_mode_topics_are_complete() -> None:
+    topics = (
+        "workspace",
+        "preset",
+        "threshold",
+        "current",
+        "duration",
+        "burn_in",
+        "method",
+        "reset",
+        "composition_s",
+        "composition_alpha",
+        "methods",
+        "dt_values",
+        "current_range",
+        "alpha_values",
+        "trace",
+        "convergence",
+        "fi",
+        "alpha",
+        "summary",
+    )
+    for locale in Translator.available_locales():
+        translator = Translator(locale)
+        for name in topics:
+            topic = translator.help_topic(f"single_neuron.{name}")
+            assert topic["title"]
+            assert topic["short"]
+            assert topic["long"]
+        assert "ISI" in translator.help_topic("single_neuron.convergence")["short"]
