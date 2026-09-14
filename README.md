@@ -42,7 +42,7 @@ python -m pip install --upgrade pip
 Install the wheel with GUI and MNIST support from the folder containing the file:
 
 ```powershell
-python -m pip install "./snnlab-1.0.0-py3-none-any.whl[gui,mnist]"
+python -m pip install "./snnlab-1.1.0-py3-none-any.whl[gui,mnist]"
 snnlab-gui
 ```
 
@@ -88,7 +88,7 @@ python -m pip install .
 or from the wheel:
 
 ```powershell
-python -m pip install ./snnlab-1.0.0-py3-none-any.whl
+python -m pip install ./snnlab-1.1.0-py3-none-any.whl
 ```
 
 This installs NumPy, scikit-learn, PyYAML, and the SNNLab core. Add the `gui` and `mnist` extras when those features are needed.

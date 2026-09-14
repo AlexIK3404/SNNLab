@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "snnlab"
-version = "1.0.0"
+version = "1.1.0"
 description = "CPU-first research framework and desktop GUI for spiking neural networks"
 readme = "README.md"
 requires-python = ">=3.11"
