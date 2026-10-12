@@ -29,6 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--locale", choices=("en", "ru"), default="en")
     parser.add_argument("--exc-method", default="explicit_euler")
     parser.add_argument("--inh-method", default="explicit_euler")
+    parser.add_argument("--implicit-rtol", type=float, default=1e-3)
+    parser.add_argument("--implicit-atol-v", type=float, default=0.05)
+    parser.add_argument("--implicit-atol-u", type=float, default=0.01)
     parser.add_argument("--train-pool-size", type=int, default=1000)
     parser.add_argument("--test-pool-size", type=int, default=200)
     return parser
@@ -42,6 +45,9 @@ def main() -> None:
         seed=52,
         exc_numerical_method=args.exc_method,
         inh_numerical_method=args.inh_method,
+        implicit_rtol=args.implicit_rtol,
+        implicit_atol_v=args.implicit_atol_v,
+        implicit_atol_u=args.implicit_atol_u,
     )
 
     # EN: Reproduce the current notebook's two-stage sampling protocol:

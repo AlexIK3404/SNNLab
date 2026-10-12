@@ -11,6 +11,8 @@ from snnlab.core.numerical_methods import (
     IzhikevichParameters,
     available_methods,
     get_stepper,
+    implicit_euler_grid_step,
+    implicit_euler_step_doubling,
     izhikevich_rhs,
 )
 
@@ -39,6 +41,16 @@ NEURON_PRESETS: dict[str, NeuronParameters] = {
     "intrinsically_bursting": NeuronParameters(a=0.02, b=0.2, c=-55.0, d=4.0),
     "chattering": NeuronParameters(a=0.02, b=0.2, c=-50.0, d=2.0),
     "low_threshold_spiking": NeuronParameters(a=0.02, b=0.25, c=-65.0, d=2.0),
+    "phasic_spiking": NeuronParameters(a=0.02, b=0.25, c=-65.0, d=6.0),
+    "phasic_bursting": NeuronParameters(a=0.02, b=0.25, c=-55.0, d=0.05),
+    "spike_frequency_adaptation": NeuronParameters(a=0.01, b=0.2, c=-65.0, d=8.0),
+}
+
+# Example currents for an initial trace; the response still depends on initial state and stimulus.
+PRESET_CURRENTS = {
+    "phasic_spiking": 0.5,
+    "phasic_bursting": 0.6,
+    "spike_frequency_adaptation": 30.0,
 }
 
 
@@ -53,10 +65,12 @@ class IntegratorDescriptor:
 INTEGRATORS: dict[str, IntegratorDescriptor] = {
     "explicit_euler": IntegratorDescriptor("explicit_euler", 1, 1),
     "semi_euler": IntegratorDescriptor("semi_euler", 1, 1),
+    "semi_euler_uv": IntegratorDescriptor("semi_euler_uv", 1, 1),
     "semi_implicit_euler": IntegratorDescriptor("semi_implicit_euler", 2, 1),
     "implicit_euler": IntegratorDescriptor("implicit_euler", 1, 1),
     "midpoint": IntegratorDescriptor("midpoint", 2, 2),
     "semi_midpoint": IntegratorDescriptor("semi_midpoint", 2, 2),
+    "semi_midpoint_uv": IntegratorDescriptor("semi_midpoint_uv", 2, 2),
     "semi_implicit_midpoint": IntegratorDescriptor("semi_implicit_midpoint", 3, 2),
     "euler_composition_real": IntegratorDescriptor("euler_composition_real", 2, 1, "composition_s"),
     "euler_composition_complex": IntegratorDescriptor(
@@ -67,9 +81,8 @@ INTEGRATORS: dict[str, IntegratorDescriptor] = {
 DEFAULT_COMPARISON_METHODS = (
     "explicit_euler",
     "semi_euler",
+    "semi_euler_uv",
     "midpoint",
-    "euler_composition_real",
-    "euler_composition_complex",
 )
 DEFAULT_DT_VALUES_MS = (0.4, 0.2, 0.1, 0.05, 0.025)
 DEFAULT_ALPHA_VALUES = (0.25, 0.4, 0.5, 0.6, 0.75, 1.0)
@@ -78,7 +91,7 @@ _FRAMEWORK_METHODS = frozenset(available_methods())
 
 @dataclass(frozen=True, slots=True)
 class SingleNeuronConfig:
-    """Configuration shared by trace, f-I and convergence experiments."""
+    """Shared configuration; duration is measured after the burn-in interval."""
 
     neuron: NeuronParameters = NeuronParameters()
     input_current: float = 12.0
@@ -86,12 +99,18 @@ class SingleNeuronConfig:
     burn_in_ms: float = 500.0
     dt_ms: float = 0.1
     method_id: str = "midpoint"
-    reset_mode: str = "event"
+    reset_mode: str = "grid"
     composition_s: float = 0.5
     composition_alpha: float = 0.5
     initial_voltage_mv: float | None = None
     initial_recovery: float | None = None
     state_limit: float = 500.0
+    implicit_rtol: float = 1e-3
+    implicit_atol_v: float = 0.05
+    implicit_atol_u: float = 0.01
+    seed: int = 0
+    noise_std: float = 0.0
+    noise_interval_ms: float = 5.0
 
     def __post_init__(self) -> None:
         neuron_values = (
@@ -113,12 +132,8 @@ class SingleNeuronConfig:
             raise ValueError("dt_ms must be finite and positive")
         if not np.isfinite(self.duration_ms) or self.duration_ms <= 0.0:
             raise ValueError("duration_ms must be finite and positive")
-        if (
-            not np.isfinite(self.burn_in_ms)
-            or self.burn_in_ms < 0.0
-            or self.burn_in_ms >= self.duration_ms
-        ):
-            raise ValueError("burn_in_ms must be in [0, duration_ms)")
+        if not np.isfinite(self.burn_in_ms) or self.burn_in_ms < 0.0:
+            raise ValueError("burn_in_ms must be finite and non-negative")
         if not 0.0 <= self.composition_s <= 1.0:
             raise ValueError("composition_s must be in [0, 1]")
         if not np.isfinite(self.composition_alpha) or self.composition_alpha < 0.0:
@@ -131,7 +146,20 @@ class SingleNeuronConfig:
                 raise ValueError(f"{name} must be finite when provided")
         if not np.isfinite(self.state_limit) or self.state_limit <= 0.0:
             raise ValueError("state_limit must be finite and positive")
-        if self.duration_ms / self.dt_ms > 10_000_000:
+        for name in ("implicit_rtol", "implicit_atol_v", "implicit_atol_u"):
+            value = getattr(self, name)
+            if not np.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive")
+        if not isinstance(self.seed, int) or not 0 <= self.seed < 2**32:
+            raise ValueError("seed must be an integer in [0, 2**32)")
+        if not np.isfinite(self.noise_std) or self.noise_std < 0.0:
+            raise ValueError("noise_std must be finite and non-negative")
+        if not np.isfinite(self.noise_interval_ms) or self.noise_interval_ms <= 0.0:
+            raise ValueError("noise_interval_ms must be finite and positive")
+        total_ms = self.burn_in_ms + self.duration_ms
+        if self.noise_std > 0 and total_ms / self.noise_interval_ms > 1_000_000:
+            raise ValueError("Noise input exceeds the 1,000,000-interval safety limit")
+        if total_ms / self.dt_ms > 10_000_000:
             raise ValueError("The requested trace exceeds the 10,000,000-step safety limit")
 
 
@@ -145,6 +173,7 @@ class SingleNeuronTrace:
     simulated_steps: int
     diverged: bool = False
     divergence_time_ms: float | None = None
+    implicit_step_attempts: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +195,8 @@ class ConvergencePoint:
     drift_ms_per_s: float
     nanoseconds_per_step: float
     diverged: bool
+    spike_count: int = 0
+    implicit_attempts_per_grid_step: float = float("nan")
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +213,8 @@ class ConvergenceStudy:
     reference_dt_ms: float
     reset_mode: str
     series: tuple[ConvergenceSeries, ...]
+    reference_uncertainty_ms: float = float("nan")
+    reference_spike_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +223,9 @@ class FICurve:
     currents: np.ndarray
     rates_hz: np.ndarray
     diverged: np.ndarray
+    rates_sd_hz: np.ndarray | None = None
+    valid_counts: np.ndarray | None = None
+    trial_rates_hz: np.ndarray | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,18 +241,64 @@ class MethodTrace:
 
     method_id: str
     trace: SingleNeuronTrace
+    dt_ms: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TrialPoint:
+    method_id: str
+    seed: int
+    firing_rate_hz: float
+    mean_isi_ms: float
+    spike_count: int
+    diverged: bool
+
+
+@dataclass(frozen=True, slots=True)
+class StudySelection:
+    """Outputs requested by the caller; unselected protocols are not simulated."""
+
+    traces: bool = True
+    convergence: bool = True
+    fi: bool = True
+    alpha: bool = True
+    summary: bool = True
+    phase: bool = False
+    variability: bool = False
+
+    def __post_init__(self) -> None:
+        if not any(
+            (
+                self.traces,
+                self.convergence,
+                self.fi,
+                self.alpha,
+                self.summary,
+                self.phase,
+                self.variability,
+            )
+        ):
+            raise ValueError("Select at least one study result")
 
 
 @dataclass(slots=True)
 class SingleNeuronStudy:
     config: SingleNeuronConfig
-    trace: SingleNeuronTrace
-    metrics: TraceMetrics
-    convergence: ConvergenceStudy
-    grid_convergence: ConvergenceStudy
+    trace: SingleNeuronTrace | None
+    metrics: TraceMetrics | None
+    convergence: ConvergenceStudy | None
+    reset_control: ConvergenceStudy | None
     fi_curves: tuple[FICurve, ...]
     alpha_sweep: tuple[AlphaSweepPoint, ...]
     comparison_traces: tuple[MethodTrace, ...] = ()
+    selection: StudySelection = StudySelection()
+    trial_points: tuple[TrialPoint, ...] = ()
+    n_runs: int = 1
+    trace_config: SingleNeuronConfig | None = None
+    dt_values_ms: tuple[float, ...] = ()
+    currents: tuple[float, ...] = ()
+    alpha_values: tuple[float, ...] = ()
+    trace_dt_values_ms: tuple[float, ...] = ()
 
 
 def neuron_preset(preset_id: str) -> NeuronParameters:
@@ -296,12 +378,13 @@ def _step_from_config(
     v: float,
     u: float,
     dt_ms: float,
+    current: float | None = None,
 ) -> tuple[float, float]:
     return step_single_neuron(
         config.method_id,
         v,
         u,
-        config.input_current,
+        config.input_current if current is None else current,
         dt_ms,
         config.neuron,
         composition_s=config.composition_s,
@@ -314,15 +397,16 @@ def _event_crossing(
     v: float,
     u: float,
     dt_ms: float,
+    current: float | None = None,
 ) -> tuple[float, float]:
     """Locate the threshold crossing within a step using the chosen integrator."""
 
     low = 0.0
     high = dt_ms
-    _, u_high = _step_from_config(config, v, u, high)
+    _, u_high = _step_from_config(config, v, u, high, current)
     for _ in range(36):
         middle = 0.5 * (low + high)
-        v_middle, u_middle = _step_from_config(config, v, u, middle)
+        v_middle, u_middle = _step_from_config(config, v, u, middle, current)
         if not _finite_state(v_middle, u_middle, config.state_limit):
             high = middle
             continue
@@ -341,24 +425,28 @@ def _advance_with_reset(
     v: float,
     u: float,
     dt_ms: float,
-) -> tuple[float, float, list[float], bool]:
+    current: float | None = None,
+) -> tuple[float, float, list[float], bool, int]:
     """Advance one grid interval and return spike offsets inside it."""
+
+    if config.method_id == "implicit_euler":
+        return _advance_implicit_with_reset(config, v, u, dt_ms, current)
 
     remaining = dt_ms
     elapsed = 0.0
     spike_offsets: list[float] = []
     while remaining > 1e-12:
-        v_new, u_new = _step_from_config(config, v, u, remaining)
+        v_new, u_new = _step_from_config(config, v, u, remaining, current)
         if not _finite_state(v_new, u_new, config.state_limit):
-            return v_new, u_new, spike_offsets, True
+            return v_new, u_new, spike_offsets, True, 0
         if v_new < config.neuron.threshold_mv:
-            return v_new, u_new, spike_offsets, False
+            return v_new, u_new, spike_offsets, False, 0
 
         if config.reset_mode == "grid":
             spike_offsets.append(elapsed + remaining)
-            return config.neuron.c, u_new + config.neuron.d, spike_offsets, False
+            return config.neuron.c, u_new + config.neuron.d, spike_offsets, False, 0
 
-        crossing_dt, u_crossing = _event_crossing(config, v, u, remaining)
+        crossing_dt, u_crossing = _event_crossing(config, v, u, remaining, current)
         spike_offsets.append(elapsed + crossing_dt)
         v = config.neuron.c
         u = u_crossing + config.neuron.d
@@ -366,11 +454,104 @@ def _advance_with_reset(
         remaining -= crossing_dt
 
         if len(spike_offsets) >= 8:
-            return v, u, spike_offsets, True
+            return v, u, spike_offsets, True, 0
         if crossing_dt <= 1e-12:
             remaining = max(0.0, remaining - 1e-12)
 
-    return v, u, spike_offsets, False
+    return v, u, spike_offsets, False, 0
+
+
+def _advance_implicit_with_reset(
+    config: SingleNeuronConfig,
+    v: float,
+    u: float,
+    dt_ms: float,
+    current: float | None,
+) -> tuple[float, float, list[float], bool, int]:
+    """Control backward-Euler local error by step doubling within a grid interval."""
+
+    if config.reset_mode == "grid":
+        voltage, recovery, spikes, solves = implicit_euler_grid_step(
+            np.asarray([v]), np.asarray([u]),
+            np.asarray([config.input_current if current is None else current]),
+            dt_ms, _core_parameters(config.neuron.a, config.neuron.b),
+            threshold=config.neuron.threshold_mv,
+            reset_voltage=config.neuron.c,
+            reset_recovery=config.neuron.d,
+            state_limit=config.state_limit,
+            rtol=config.implicit_rtol,
+            atol_v=config.implicit_atol_v,
+            atol_u=config.implicit_atol_u,
+            return_solves=True,
+        )
+        failed = not np.isfinite(voltage[0]) or not np.isfinite(recovery[0])
+        return (
+            v if failed else float(voltage[0]),
+            u if failed else float(recovery[0]),
+            [dt_ms] if bool(spikes[0]) else [],
+            failed,
+            int(solves[0]),
+        )
+
+    remaining = dt_ms
+    elapsed = 0.0
+    proposed = dt_ms
+    spike_offsets: list[float] = []
+    attempts = 0
+    while remaining > 1e-12:
+        attempts += 3
+        if attempts > 12288:
+            return v, u, spike_offsets, True, attempts
+        h = min(proposed, remaining)
+        v_mid, u_mid, v_new, u_new, error = implicit_euler_step_doubling(
+            np.asarray(v), np.asarray(u),
+            np.asarray(config.input_current if current is None else current),
+            h, _core_parameters(config.neuron.a, config.neuron.b),
+            rtol=config.implicit_rtol,
+            atol_v=config.implicit_atol_v,
+            atol_u=config.implicit_atol_u,
+        )
+        valid = (
+            _finite_state(float(v_mid), float(u_mid), config.state_limit)
+            and _finite_state(float(v_new), float(u_new), config.state_limit)
+            and np.isfinite(error)
+        )
+        if not valid or error > 1.0:
+            proposed = h * (
+                min(0.5, max(0.2, 0.9 / np.sqrt(float(error))))
+                if valid else 0.5
+            )
+            if proposed < 1e-9:
+                return v, u, spike_offsets, True, attempts
+            continue
+        if v_new >= config.neuron.threshold_mv:
+            if v_mid >= config.neuron.threshold_mv:
+                crossing_dt, u_crossing = _event_crossing(config, v, u, h / 2, current)
+            else:
+                crossing_dt, u_crossing = _event_crossing(
+                    config, float(v_mid), float(u_mid), h / 2, current
+                )
+                crossing_dt += h / 2
+            if config.reset_mode == "grid":
+                spike_offsets.append(dt_ms)
+                return config.neuron.c, u_crossing + config.neuron.d, spike_offsets, False, attempts
+            spike_offsets.append(elapsed + crossing_dt)
+            if len(spike_offsets) >= 8:
+                return config.neuron.c, u_crossing + config.neuron.d, spike_offsets, True, attempts
+            v = config.neuron.c
+            u = u_crossing + config.neuron.d
+            elapsed += crossing_dt
+            remaining = dt_ms - elapsed
+            proposed = min(h, remaining)
+            continue
+        v, u = v_new, u_new
+        elapsed += h
+        remaining = dt_ms - elapsed
+        proposed = min(
+            remaining,
+            h * min(2.0, max(0.5, 0.9 / np.sqrt(max(float(error), 1e-12)))),
+        )
+    return v, u, spike_offsets, False, attempts
 
 
 def simulate_single_neuron(
@@ -399,19 +580,39 @@ def simulate_single_neuron(
     spikes: list[float] = []
     time_ms = 0.0
     steps = 0
+    implicit_step_attempts = 0
     diverged = False
     divergence_time: float | None = None
+    total_ms = config.burn_in_ms + config.duration_ms
+    noise = None
+    if config.noise_std > 0.0:
+        count = int(np.ceil(total_ms / config.noise_interval_ms)) + 1
+        noise = np.random.default_rng(config.seed).standard_normal(count)
 
     started = perf_counter_ns()
-    while time_ms < config.duration_ms - 1e-12:
+    while time_ms < total_ms - 1e-12:
         if steps % 4096 == 0:
             _check_cancelled(cancel_callback)
-        step_dt = min(config.dt_ms, config.duration_ms - time_ms)
-        v, u, offsets, step_diverged = _advance_with_reset(config, v, u, step_dt)
+        step_dt = min(config.dt_ms, total_ms - time_ms)
+        current = config.input_current
+        if noise is not None:
+            index = min(int(time_ms / config.noise_interval_ms), noise.size - 1)
+            boundary = (index + 1) * config.noise_interval_ms
+            if boundary - time_ms <= 1e-10:
+                index += 1
+                boundary = (index + 1) * config.noise_interval_ms
+            step_dt = min(step_dt, boundary - time_ms)
+            current += config.noise_std * float(noise[index])
+        v, u, offsets, step_diverged, attempts = _advance_with_reset(
+            config, v, u, step_dt, current
+        )
+        implicit_step_attempts += attempts
         spikes.extend(time_ms + offset for offset in offsets)
         time_ms += step_dt
         steps += 1
-        if record_state:
+        # A rejected step has no valid endpoint. Do not autoscale a plot using
+        # its invalid trial state (or label its previous state as the new one).
+        if record_state and not step_diverged:
             times.append(time_ms)
             voltages.append(v)
             recoveries.append(u)
@@ -435,6 +636,29 @@ def simulate_single_neuron(
         simulated_steps=int(steps),
         diverged=diverged,
         divergence_time_ms=divergence_time,
+        implicit_step_attempts=implicit_step_attempts,
+    )
+
+
+def observed_trace_arrays(
+    trace: SingleNeuronTrace, burn_in_ms: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return only recorded samples and spikes after burn-in, with time rebased to zero."""
+    start = int(np.searchsorted(trace.time_ms, burn_in_ms, side="left"))
+    spikes = trace.spike_times_ms[trace.spike_times_ms >= burn_in_ms]
+    end = (
+        -1
+        if trace.diverged
+        and trace.time_ms.size > 1
+        and trace.divergence_time_ms is not None
+        and trace.time_ms[-1] >= trace.divergence_time_ms - 1e-9
+        else None
+    )
+    return (
+        trace.time_ms[start:end] - burn_in_ms,
+        trace.voltage_mv[start:end],
+        trace.recovery[start:end],
+        spikes - burn_in_ms,
     )
 
 
@@ -454,7 +678,12 @@ def trace_metrics(trace: SingleNeuronTrace, burn_in_ms: float) -> TraceMetrics:
     spikes = _spikes_after(trace, burn_in_ms)
     intervals = np.diff(spikes)
     mean_isi = float(np.mean(intervals)) if intervals.size else float("nan")
-    firing_rate = 1000.0 / mean_isi if np.isfinite(mean_isi) and mean_isi > 0.0 else 0.0
+    observation_ms = float(trace.time_ms[-1]) - burn_in_ms
+    firing_rate = (
+        float("nan")
+        if trace.diverged or observation_ms <= 0.0
+        else 1000.0 * spikes.size / observation_ms
+    )
     isi_cv = (
         float(np.std(intervals, ddof=1) / mean_isi)
         if intervals.size >= 2 and mean_isi > 0.0
@@ -556,7 +785,8 @@ def _reference_period(
     config: SingleNeuronConfig,
     dts: Sequence[float],
     cancel_callback: CancelCallback | None,
-) -> tuple[float, float, SingleNeuronTrace]:
+    progress_callback: ProgressCallback | None = None,
+) -> tuple[float, float, SingleNeuronTrace, float]:
     fine_dt = min(float(value) for value in dts) / 10.0
     coarse_config = replace(
         config,
@@ -570,20 +800,35 @@ def _reference_period(
         record_state=False,
         cancel_callback=cancel_callback,
     )
+    if progress_callback is not None:
+        progress_callback("reference", 1, 3)
     fine = simulate_single_neuron(
         fine_config,
         record_state=False,
         cancel_callback=cancel_callback,
     )
+    if progress_callback is not None:
+        progress_callback("reference", 2, 3)
+    finer_config = replace(coarse_config, dt_ms=fine_dt / 2.0)
+    finer = simulate_single_neuron(
+        finer_config,
+        record_state=False,
+        cancel_callback=cancel_callback,
+    )
+    if progress_callback is not None:
+        progress_callback("reference", 3, 3)
     coarse_period = _period_ms(coarse, config.burn_in_ms)
     fine_period = _period_ms(fine, config.burn_in_ms)
-    if not np.isfinite(coarse_period) or not np.isfinite(fine_period):
+    finer_period = _period_ms(finer, config.burn_in_ms)
+    if not all(np.isfinite(value) for value in (coarse_period, fine_period, finer_period)):
         raise RuntimeError(
             "The reference simulation did not produce enough stable spikes. "
             "Increase input current or duration."
         )
-    richardson_period = fine_period + (fine_period - coarse_period) / 3.0
-    return float(richardson_period), float(fine_dt), fine
+    first_extrapolation = fine_period + (fine_period - coarse_period) / 3.0
+    second_extrapolation = finer_period + (finer_period - fine_period) / 3.0
+    uncertainty = abs(second_extrapolation - first_extrapolation)
+    return float(second_extrapolation), float(finer_config.dt_ms), finer, float(uncertainty)
 
 
 def _drift_rate(
@@ -591,15 +836,17 @@ def _drift_rate(
     reference: SingleNeuronTrace,
     burn_in_ms: float,
 ) -> float:
-    count = min(trace.spike_times_ms.size, reference.spike_times_ms.size)
-    if count < 5:
+    if trace.diverged:
         return float("nan")
-    reference_times = reference.spike_times_ms[:count]
-    differences = trace.spike_times_ms[:count] - reference_times
-    mask = reference_times >= burn_in_ms
-    if int(np.count_nonzero(mask)) < 3:
+    observed_times = _spikes_after(trace, burn_in_ms)
+    reference_times = _spikes_after(reference, burn_in_ms)
+    if observed_times.size != reference_times.size or reference_times.size < 5:
         return float("nan")
-    slope = np.polyfit(reference_times[mask], differences[mask], 1)[0]
+    differences = observed_times - reference_times
+    reference_isi = np.median(np.diff(reference_times))
+    if not np.isfinite(reference_isi) or abs(differences[0]) >= 0.5 * reference_isi:
+        return float("nan")
+    slope = np.polyfit(reference_times, differences, 1)[0]
     return float(abs(slope) * 1000.0)
 
 
@@ -610,7 +857,7 @@ def run_convergence_study(
     dt_values_ms: Sequence[float] = DEFAULT_DT_VALUES_MS,
     cancel_callback: CancelCallback | None = None,
     progress_callback: ProgressCallback | None = None,
-    _reference_data: tuple[float, float, SingleNeuronTrace] | None = None,
+    _reference_data: tuple[float, float, SingleNeuronTrace, float] | None = None,
 ) -> ConvergenceStudy:
     """Compare spike-period convergence and long-horizon timing drift."""
 
@@ -622,8 +869,8 @@ def run_convergence_study(
     if any(not np.isfinite(dt) or dt <= 0.0 for dt in dt_values_ms):
         raise ValueError("All dt values must be finite and positive")
 
-    reference_period, reference_dt, reference_trace = (
-        _reference_period(config, dt_values_ms, cancel_callback)
+    reference_period, reference_dt, reference_trace, reference_uncertainty = (
+        _reference_period(config, dt_values_ms, cancel_callback, progress_callback)
         if _reference_data is None
         else _reference_data
     )
@@ -651,6 +898,11 @@ def run_convergence_study(
                     drift_ms_per_s=_drift_rate(trace, reference_trace, config.burn_in_ms),
                     nanoseconds_per_step=trace.elapsed_ns / max(1, trace.simulated_steps),
                     diverged=trace.diverged,
+                    spike_count=int(_spikes_after(trace, config.burn_in_ms).size),
+                    implicit_attempts_per_grid_step=(
+                        trace.implicit_step_attempts / max(1, trace.simulated_steps)
+                        if method_id == "implicit_euler" else float("nan")
+                    ),
                 )
             )
             completed += 1
@@ -674,6 +926,8 @@ def run_convergence_study(
         reference_dt_ms=reference_dt,
         reset_mode=config.reset_mode,
         series=tuple(result_series),
+        reference_uncertainty_ms=reference_uncertainty,
+        reference_spike_count=int(_spikes_after(reference_trace, config.burn_in_ms).size),
     )
 
 
@@ -682,6 +936,7 @@ def run_fi_curves(
     *,
     method_ids: Sequence[str] = DEFAULT_COMPARISON_METHODS,
     currents: Sequence[float] = tuple(np.arange(0.0, 35.01, 1.0)),
+    n_runs: int = 1,
     cancel_callback: CancelCallback | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> tuple[FICurve, ...]:
@@ -689,10 +944,14 @@ def run_fi_curves(
 
     if not method_ids or not currents:
         raise ValueError("f-I study requires at least one method and one current")
+    if not 1 <= n_runs <= 100:
+        raise ValueError("n_runs must be between 1 and 100")
+    if config.seed + n_runs > 2**32:
+        raise ValueError("Consecutive trial seeds must be below 2**32")
     for method_id in method_ids:
         if method_id not in INTEGRATORS:
             raise ValueError(f"Unknown single-neuron integrator: {method_id!r}")
-    total = len(method_ids) * len(currents)
+    total = len(method_ids) * len(currents) * n_runs
     completed = 0
     curves: list[FICurve] = []
     current_values = np.asarray(currents, dtype=np.float64)
@@ -700,29 +959,92 @@ def run_fi_curves(
         raise ValueError("All current values must be finite")
     for method_id in method_ids:
         rates: list[float] = []
+        standard_deviations: list[float] = []
+        counts: list[int] = []
+        all_rates: list[list[float]] = [[] for _ in range(n_runs)]
         diverged: list[bool] = []
         for current in current_values:
-            _check_cancelled(cancel_callback)
-            trial = replace(config, method_id=method_id, input_current=float(current))
-            trace = simulate_single_neuron(
-                trial,
-                record_state=False,
-                cancel_callback=cancel_callback,
-            )
-            rates.append(trace_metrics(trace, config.burn_in_ms).firing_rate_hz)
-            diverged.append(trace.diverged)
-            completed += 1
-            if progress_callback is not None:
-                progress_callback("fi_curve", completed, total)
+            samples = []
+            failed = False
+            for run_index in range(n_runs):
+                _check_cancelled(cancel_callback)
+                trial = replace(
+                    config,
+                    method_id=method_id,
+                    input_current=float(current),
+                    seed=config.seed + run_index,
+                )
+                trace = simulate_single_neuron(
+                    trial, record_state=False, cancel_callback=cancel_callback
+                )
+                rate = (
+                    trace_metrics(trace, config.burn_in_ms).firing_rate_hz
+                    if not trace.diverged
+                    else float("nan")
+                )
+                all_rates[run_index].append(rate)
+                if np.isfinite(rate):
+                    samples.append(rate)
+                failed |= trace.diverged
+                completed += 1
+                if progress_callback is not None:
+                    progress_callback("fi_curve", completed, total)
+            rates.append(float(np.mean(samples)) if samples else float("nan"))
+            standard_deviations.append(float(np.std(samples, ddof=1)) if len(samples) > 1 else 0.0)
+            counts.append(len(samples))
+            diverged.append(failed)
         curves.append(
             FICurve(
                 method_id=method_id,
                 currents=current_values.copy(),
                 rates_hz=np.asarray(rates, dtype=np.float64),
                 diverged=np.asarray(diverged, dtype=np.bool_),
+                rates_sd_hz=np.asarray(standard_deviations, dtype=np.float64),
+                valid_counts=np.asarray(counts, dtype=np.int64),
+                trial_rates_hz=np.asarray(all_rates, dtype=np.float64),
             )
         )
     return tuple(curves)
+
+
+def run_trial_variability(
+    config: SingleNeuronConfig,
+    *,
+    method_ids: Sequence[str],
+    n_runs: int,
+    cancel_callback: CancelCallback | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> tuple[TrialPoint, ...]:
+    """Paired stochastic input streams across methods, recorded per seed."""
+    if not 1 <= n_runs <= 100:
+        raise ValueError("Variability study requires 1 to 100 runs")
+    if config.seed + n_runs > 2**32:
+        raise ValueError("Consecutive trial seeds must be below 2**32")
+    total = len(method_ids) * n_runs
+    points = []
+    for method_id in method_ids:
+        if method_id not in INTEGRATORS:
+            raise ValueError(f"Unknown single-neuron integrator: {method_id!r}")
+        for run_index in range(n_runs):
+            _check_cancelled(cancel_callback)
+            trial = replace(config, method_id=method_id, seed=config.seed + run_index)
+            trace = simulate_single_neuron(
+                trial, record_state=False, cancel_callback=cancel_callback
+            )
+            metrics = trace_metrics(trace, config.burn_in_ms)
+            points.append(
+                TrialPoint(
+                    method_id,
+                    trial.seed,
+                    metrics.firing_rate_hz,
+                    metrics.mean_isi_ms,
+                    metrics.spike_count,
+                    trace.diverged,
+                )
+            )
+            if progress_callback is not None:
+                progress_callback("variability", len(points), total)
+    return tuple(points)
 
 
 def run_alpha_sweep(
@@ -787,84 +1109,171 @@ def run_alpha_sweep(
 def run_single_neuron_study(
     config: SingleNeuronConfig,
     *,
+    phase_config: SingleNeuronConfig | None = None,
     method_ids: Sequence[str] = DEFAULT_COMPARISON_METHODS,
     dt_values_ms: Sequence[float] = DEFAULT_DT_VALUES_MS,
+    trace_dt_values_ms: Sequence[float] = (),
     currents: Sequence[float] = tuple(np.arange(0.0, 35.01, 1.0)),
     alpha_values: Sequence[float] = DEFAULT_ALPHA_VALUES,
+    n_runs: int = 1,
+    selection: StudySelection | None = None,
     cancel_callback: CancelCallback | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> SingleNeuronStudy:
-    """Run the complete single-neuron layer of the numerical-method ablation."""
+    """Compute only the requested single-neuron study outputs."""
 
-    if not method_ids:
+    selection = StudySelection() if selection is None else selection
+    need_methods = (
+        selection.traces
+        or selection.convergence
+        or selection.fi
+        or selection.summary
+        or selection.variability
+    )
+    if need_methods and not method_ids:
         raise ValueError("Single-neuron study requires at least one comparison method")
+    if not 1 <= n_runs <= 100 or config.seed + n_runs > 2**32:
+        raise ValueError("n_runs must be in [1, 100] with valid consecutive seeds")
     for method_id in method_ids:
         if method_id not in INTEGRATORS:
             raise ValueError(f"Unknown single-neuron integrator: {method_id!r}")
+    compare_phase = selection.phase and bool(method_ids)
+    trace_dts = (
+        tuple(dict.fromkeys(float(dt) for dt in trace_dt_values_ms))
+        if (selection.traces or compare_phase) and trace_dt_values_ms
+        else (config.dt_ms,) if (selection.traces or compare_phase) else ()
+    )
+    if any(not np.isfinite(dt) or dt <= 0.0 for dt in trace_dts):
+        raise ValueError("Trajectory dt values must be finite and positive")
 
-    if progress_callback is not None:
-        progress_callback("trace", 0, len(method_ids))
-    trace = simulate_single_neuron(config, cancel_callback=cancel_callback)
+    phase_config = config if phase_config is None else phase_config
+    trace = None
+    trace_config = None
     comparison_traces: list[MethodTrace] = []
-    for index, method_id in enumerate(method_ids, start=1):
-        _check_cancelled(cancel_callback)
-        method_trace = (
-            trace
-            if method_id == config.method_id
-            else simulate_single_neuron(
-                replace(config, method_id=method_id),
-                cancel_callback=cancel_callback,
-            )
-        )
-        comparison_traces.append(MethodTrace(method_id=method_id, trace=method_trace))
+    if selection.phase:
+        trace = simulate_single_neuron(phase_config, cancel_callback=cancel_callback)
+        trace_config = phase_config
+    if selection.traces or compare_phase:
         if progress_callback is not None:
-            progress_callback("trace", index, len(method_ids))
-    event_config = replace(config, reset_mode="event")
-    reference_data = _reference_period(event_config, dt_values_ms, cancel_callback)
-    convergence = run_convergence_study(
-        event_config,
-        method_ids=method_ids,
-        dt_values_ms=dt_values_ms,
-        cancel_callback=cancel_callback,
-        progress_callback=progress_callback,
-        _reference_data=reference_data,
-    )
-    grid_convergence = run_convergence_study(
-        replace(config, reset_mode="grid"),
-        method_ids=method_ids,
-        dt_values_ms=dt_values_ms,
-        cancel_callback=cancel_callback,
-        progress_callback=(
-            None
-            if progress_callback is None
-            else lambda _stage, value, maximum: progress_callback(
-                "grid_convergence", value, maximum
+            progress_callback("trace", 0, len(method_ids) * len(trace_dts))
+        if config.method_id in method_ids and trace is None and config.dt_ms in trace_dts:
+            trace = simulate_single_neuron(config, cancel_callback=cancel_callback)
+            trace_config = config
+        for dt_ms in trace_dts:
+            for method_id in method_ids:
+                _check_cancelled(cancel_callback)
+                method_trace = (
+                    trace
+                    if method_id == config.method_id
+                    and trace_config == config
+                    and dt_ms == config.dt_ms
+                    else simulate_single_neuron(
+                        replace(config, method_id=method_id, dt_ms=dt_ms),
+                        cancel_callback=cancel_callback,
+                    )
+                )
+                comparison_traces.append(
+                    MethodTrace(method_id=method_id, trace=method_trace, dt_ms=dt_ms)
+                )
+                if progress_callback is not None:
+                    progress_callback("trace", len(comparison_traces), len(method_ids) * len(trace_dts))
+        if trace is None:
+            trace = comparison_traces[0].trace
+            trace_config = replace(
+                config,
+                method_id=comparison_traces[0].method_id,
+                dt_ms=trace_dts[0],
             )
-        ),
-        _reference_data=reference_data,
+    order_config = replace(config, noise_std=0.0)
+    need_convergence = selection.convergence or selection.summary
+    reference_data = (
+        _reference_period(order_config, dt_values_ms, cancel_callback, progress_callback)
+        if need_convergence or selection.alpha
+        else None
     )
-    curves = run_fi_curves(
-        event_config,
-        method_ids=method_ids,
-        currents=currents,
-        cancel_callback=cancel_callback,
-        progress_callback=progress_callback,
+    convergence = (
+        run_convergence_study(
+            order_config,
+            method_ids=method_ids,
+            dt_values_ms=dt_values_ms,
+            cancel_callback=cancel_callback,
+            progress_callback=progress_callback,
+            _reference_data=reference_data,
+        )
+        if need_convergence
+        else None
     )
-    alpha_sweep = run_alpha_sweep(
-        event_config,
-        alpha_values=alpha_values,
-        dt_values_ms=dt_values_ms,
-        cancel_callback=cancel_callback,
-        progress_callback=progress_callback,
-        _reference_period_ms=reference_data[0],
+    reset_control = (
+        run_convergence_study(
+            replace(
+                order_config,
+                reset_mode="event" if config.reset_mode == "grid" else "grid",
+            ),
+            method_ids=method_ids,
+            dt_values_ms=dt_values_ms,
+            cancel_callback=cancel_callback,
+            progress_callback=(
+                None
+                if progress_callback is None
+                else lambda _stage, value, maximum: progress_callback(
+                    "reset_control", value, maximum
+                )
+            ),
+            _reference_data=reference_data,
+        )
+        if selection.summary
+        else None
+    )
+    curves = (
+        run_fi_curves(
+            config,
+            method_ids=method_ids,
+            currents=currents,
+            n_runs=n_runs,
+            cancel_callback=cancel_callback,
+            progress_callback=progress_callback,
+        )
+        if selection.fi
+        else ()
+    )
+    alpha_sweep = (
+        run_alpha_sweep(
+            order_config,
+            alpha_values=alpha_values,
+            dt_values_ms=dt_values_ms,
+            cancel_callback=cancel_callback,
+            progress_callback=progress_callback,
+            _reference_period_ms=reference_data[0],
+        )
+        if selection.alpha
+        else ()
+    )
+    trial_points = (
+        run_trial_variability(
+            config,
+            method_ids=method_ids,
+            n_runs=n_runs,
+            cancel_callback=cancel_callback,
+            progress_callback=progress_callback,
+        )
+        if selection.variability
+        else ()
     )
     return SingleNeuronStudy(
         config=config,
         trace=trace,
-        metrics=trace_metrics(trace, config.burn_in_ms),
+        metrics=trace_metrics(trace, trace_config.burn_in_ms) if trace is not None else None,
         convergence=convergence,
-        grid_convergence=grid_convergence,
+        reset_control=reset_control,
         fi_curves=curves,
         alpha_sweep=alpha_sweep,
         comparison_traces=tuple(comparison_traces),
+        selection=selection,
+        trial_points=trial_points,
+        n_runs=n_runs,
+        trace_config=trace_config,
+        dt_values_ms=tuple(float(value) for value in dt_values_ms) if need_convergence or selection.alpha else (),
+        currents=tuple(float(value) for value in currents) if selection.fi else (),
+        alpha_values=tuple(float(value) for value in alpha_values) if selection.alpha else (),
+        trace_dt_values_ms=trace_dts,
     )

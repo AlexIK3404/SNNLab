@@ -30,6 +30,17 @@ def test_small_reservoir_smoke() -> None:
     assert result.spike_counts.shape == (12,)
 
 
+def test_implicit_reservoir_produces_spikes() -> None:
+    cfg = ReservoirConfig(
+        n_input=1, n_reservoir=8, simulation_ms=120.0, dt_ms=0.4,
+        bias_current=12.0, input_scale=0.0, recurrent_scale=0.0,
+        numerical_method="implicit_euler", select_k=4, use_feature_selection=False,
+    )
+    network = build_reservoir_network(cfg)
+    result = network.simulate(np.zeros((cfg.n_steps, 1), dtype=np.float32))
+    assert np.all(result.spike_counts > 0)
+
+
 def test_reservoir_runner_emits_activity_diagnostics(tmp_path) -> None:
     from snnlab.core.events import FrameworkEvent
     from snnlab.experiments.reservoir_runner import ReservoirRunner, ReservoirRunnerState

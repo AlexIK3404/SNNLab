@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,9 @@ class ReservoirConfig:
     v_peak: float = 30.0
 
     numerical_method: str = "semi_euler"
+    implicit_rtol: float = 1e-3
+    implicit_atol_v: float = 0.05
+    implicit_atol_u: float = 0.01
 
     readout: str = "ridge"
     use_feature_selection: bool = True
@@ -69,6 +73,10 @@ class ReservoirConfig:
             raise ValueError("n_input and n_reservoir must be positive")
         if self.dt_ms <= 0 or self.simulation_ms <= 0:
             raise ValueError("dt_ms and simulation_ms must be positive")
+        if any(not isfinite(x) or x <= 0 for x in (
+            self.implicit_rtol, self.implicit_atol_v, self.implicit_atol_u,
+        )):
+            raise ValueError("implicit Euler tolerances must be finite and positive")
         if not 0.0 < self.excitatory_ratio <= 1.0:
             raise ValueError("excitatory_ratio must be in (0, 1]")
         if not 0.0 <= self.input_density <= 1.0:

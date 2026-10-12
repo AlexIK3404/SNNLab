@@ -272,6 +272,7 @@ class MainWindow(QMainWindow):
         for widget in (
             self.single_neuron_view.trace_button,
             self.single_neuron_view.study_button,
+            self.single_neuron_view.open_button,
             self.single_neuron_view.cancel_button,
         ):
             self._single_neuron_actions.append(self.action_toolbar.addWidget(widget))

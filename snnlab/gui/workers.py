@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from snnlab.experiments.single_neuron import (
     SingleNeuronConfig,
     StudyCancelled,
+    StudySelection,
     run_single_neuron_study,
 )
 from snnlab.runtime.single_neuron_io import save_single_neuron_study
@@ -85,18 +86,26 @@ class SingleNeuronStudyWorker(QObject):
         self,
         *,
         config: SingleNeuronConfig,
+        phase_config: SingleNeuronConfig | None = None,
         method_ids: tuple[str, ...],
         dt_values_ms: tuple[float, ...],
+        trace_dt_values_ms: tuple[float, ...] = (),
         currents: tuple[float, ...],
         alpha_values: tuple[float, ...],
+        n_runs: int = 1,
+        selection: StudySelection | None = None,
         runs_root: str = "runs/gui/single_neuron",
     ) -> None:
         super().__init__()
         self._config = config
+        self._phase_config = phase_config
         self._method_ids = method_ids
         self._dt_values_ms = dt_values_ms
+        self._trace_dt_values_ms = trace_dt_values_ms
         self._currents = currents
         self._alpha_values = alpha_values
+        self._n_runs = n_runs
+        self._selection = StudySelection() if selection is None else selection
         self._runs_root = runs_root
         self._cancel_event = Event()
 
@@ -110,10 +119,14 @@ class SingleNeuronStudyWorker(QObject):
         try:
             result = run_single_neuron_study(
                 self._config,
+                phase_config=self._phase_config,
                 method_ids=self._method_ids,
                 dt_values_ms=self._dt_values_ms,
+                trace_dt_values_ms=self._trace_dt_values_ms,
                 currents=self._currents,
                 alpha_values=self._alpha_values,
+                n_runs=self._n_runs,
+                selection=self._selection,
                 cancel_callback=self._cancel_event.is_set,
                 progress_callback=self.progress.emit,
             )

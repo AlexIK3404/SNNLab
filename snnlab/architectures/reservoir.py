@@ -8,7 +8,11 @@ import numpy as np
 
 from snnlab.configs.reservoir import ReservoirConfig
 from snnlab.core.encoders import SpikeEncoder
-from snnlab.core.numerical_methods import IzhikevichParameters, get_stepper
+from snnlab.core.numerical_methods import (
+    IzhikevichParameters,
+    get_stepper,
+    implicit_euler_grid_step,
+)
 
 
 @dataclass(slots=True)
@@ -106,7 +110,19 @@ class ReservoirNetwork:
             syn = syn * decay + input_current + recurrent_current
             current = syn + self.cfg.bias_current
 
-            v, u = stepper(v, u, current, self.cfg.dt_ms, params)
+            if self.cfg.numerical_method == "implicit_euler":
+                v, u, implicit_spikes = implicit_euler_grid_step(
+                    v, u, current, self.cfg.dt_ms, params,
+                    threshold=self.cfg.v_peak,
+                    reset_voltage=self.cfg.neuron_c,
+                    reset_recovery=self.cfg.neuron_d,
+                    rtol=self.cfg.implicit_rtol,
+                    atol_v=self.cfg.implicit_atol_v,
+                    atol_u=self.cfg.implicit_atol_u,
+                )
+            else:
+                v, u = stepper(v, u, current, self.cfg.dt_ms, params)
+                implicit_spikes = np.zeros(n_res, dtype=bool)
 
             # EN: Cast back to float32 to preserve the numerical regime of the current notebook reservoir.
             # RU: Возвращаем float32, чтобы сохранить численный режим текущего reservoir из блокнота.
@@ -118,10 +134,11 @@ class ReservoirNetwork:
                 v[unstable] = self.cfg.neuron_c
                 u[unstable] = self.cfg.neuron_b * self.cfg.neuron_c
 
-            spikes = v >= self.cfg.v_peak
-            if np.any(spikes):
-                v[spikes] = self.cfg.neuron_c
-                u[spikes] += self.cfg.neuron_d
+            raw_spikes = v >= self.cfg.v_peak
+            spikes = raw_spikes | implicit_spikes
+            if np.any(raw_spikes):
+                v[raw_spikes] = self.cfg.neuron_c
+                u[raw_spikes] += self.cfg.neuron_d
 
             spike_counts += spikes.astype(np.int64)
             previous_spikes = spikes.astype(np.float32)

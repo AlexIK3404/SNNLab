@@ -23,6 +23,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-samples", type=int, default=30)
     parser.add_argument("--locale", choices=("en", "ru"), default="en")
     parser.add_argument("--method", default="semi_euler")
+    parser.add_argument("--implicit-rtol", type=float, default=1e-3)
+    parser.add_argument("--implicit-atol-v", type=float, default=0.05)
+    parser.add_argument("--implicit-atol-u", type=float, default=0.01)
     return parser
 
 
@@ -52,6 +55,9 @@ def main() -> None:
         input_scale=input_scale,
         recurrent_scale=recurrent_scale,
         numerical_method=args.method,
+        implicit_rtol=args.implicit_rtol,
+        implicit_atol_v=args.implicit_atol_v,
+        implicit_atol_u=args.implicit_atol_u,
         select_k=select_k,
     )
     network = build_reservoir_network(cfg)

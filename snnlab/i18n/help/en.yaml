@@ -72,18 +72,29 @@ simulation:
     long: Smaller dt usually increases computational cost and can change spike timing
       and numerical stability.
 single_neuron:
+  outputs:
+    title: Choose study outputs
+    short: Checkboxes control both plots and underlying simulations.
+    long: Trajectories compare selected methods at one step size; convergence needs
+      multiple dt values; f–I needs a current range. The α plot always tests the
+      complex composition independently of the method list. The phase portrait uses
+      the individual-trace method; trial variability needs noisy input. The summary reuses
+      convergence with the selected reset and runs the other reset as a control. An unchecked
+      result does not launch its associated simulation series.
   workspace:
     title: Single-neuron experiments
     short: Isolated numerical-method comparison before synapses, STDP, or a classifier.
-    long: This workspace measures trajectories, f–I curves, inter-spike-interval error,
-      timing drift, convergence order, stability, and step cost. Event-corrected reset
-      separates integrator error from rounding a spike to a time-step boundary. Firing-rate
-      feedback control is outside this ablation.
+    long: Select trajectories, phase portrait, ISI convergence, f–I, complex composition
+      α test, trial variability, or a summary. Unchecked protocols are not run. The grid-reset
+      comparison defaults to grid reset; the summary adds an event-corrected control.
+      Synapses and firing-rate feedback control
+      are outside this experiment.
   preset:
     title: Neuron type
     short: Selects a standard Izhikevich a, b, c, and d parameter set.
-    long: A preset only fills those four fields. You can edit any value afterwards;
-      calculations use the values currently shown.
+    long: A preset fills a, b, c, and d; phasic and adaptation presets also suggest
+      an input current. The response depends on the stimulus and initial state;
+      the label alone does not guarantee regular inter-spike intervals.
   threshold:
     title: Spike threshold
     short: Value of v whose crossing registers a spike.
@@ -91,24 +102,40 @@ single_neuron:
       time inside the step.
   current:
     title: Constant input current I
-    short: Constant external current in the Izhikevich right-hand side.
+    short: Baseline external current in the Izhikevich right-hand side.
     long: It selects the neuron's operating point. If I is too small, the neuron may
       not spike and ISI-based measurements are undefined.
   duration:
-    title: Trajectory duration
-    short: Total model time of one simulation.
-    long: Longer runs provide more spikes and a stronger ISI estimate, while compute
-      time grows proportionally.
+    title: Observation window
+    short: Time after the initial transient used for measurements.
+    long: Total simulated time is the initial transient plus the observation window.
+      The window is shared by the single trace and method comparison. Longer windows
+      provide more spikes and a stronger ISI estimate.
   burn_in:
-    title: Discarded initial interval
-    short: Initial transient excluded from firing-rate and ISI measurements.
-    long: The plot still shows the full trajectory, but metrics only use spikes after
-      this time.
+    title: Initial transient
+    short: Warm-up time before the separate observation window begins.
+    long: Total simulated time adds this interval to the observation window. Spikes
+      during the transient are excluded from measurements; v(t), u(t), and the phase
+      portrait show only the observation window, with time rebased to zero.
   method:
     title: Numerical method for one trajectory
     short: Method run by the “One trajectory” button.
-    long: “Compare methods” instead uses every checked method below and records their
-      trajectories at the same dt.
+    long: The study uses the methods selected below; choosing the trajectories output
+      records them at the same dt. This drop-down still controls an individual trace.
+      In this workspace implicit Euler adapts its inner step by comparing a full step with two
+      half steps. It accepts the pair only when the scaled error is within
+      tolerance; failed roots are rejected too. Its cost includes extra solves.
+      DCI and reservoir use the same adaptive step from the shared core and
+      the same tolerances. Event reset locates the spike time separately.
+  implicit_tolerance:
+    title: Implicit Euler error tolerances
+    short: Controls error-based subdivision inside each outer grid interval.
+    long: A candidate is accepted when both estimated local errors are within
+      absolute tolerance plus relative tolerance times the state magnitude.
+      Voltage and recovery have separate absolute tolerances. Tighter values
+      increase cost. Single runs and method comparisons have separate fields,
+      each shown only when implicit Euler participates there. The displayed dt
+      remains the outer grid.
   reset:
     title: Reset handling
     short: Controls when a threshold crossing is registered within a time step.
@@ -118,23 +145,33 @@ single_neuron:
   composition_s:
     title: Real-composition parameter s
     short: Sets the two sequential Euler substeps s·dt and (1−s)·dt.
-    long: No real s can satisfy both second-order conditions; the control remains
-      available to test that result directly.
+    long: Shown in Single run only for the real composition. The comparison has
+      a separate field when this method is selected. No real s satisfies both second-order conditions;
+      varying it tests the effect of the step split.
   composition_alpha:
     title: Complex-composition parameter α
     short: Sets conjugate coefficients 1/2+iα and 1/2−iα.
-    long: The second-order conditions hold at α=1/2. The order-vs-α plot should show
-      a peak near order two at that point.
+    long: Shown in Single run only for the complex composition. Comparison uses a
+      separate α field. The order-vs-α plot scans its own list of α values,
+      independently of this field; order two is expected at α=0.5.
   methods:
     title: Methods to compare
-    short: Checked methods participate in the complete protocol and trajectory comparison.
-    long: Every trajectory shares I, duration, reset handling, and dt from “Single run”.
-      After calculation, each curve can be hidden independently.
+    short: Selected methods participate only in the requested comparison outputs.
+    long: Trajectories share I, duration, reset handling, and each dt in the list. Convergence, f–I,
+      and summary use these methods, while order-vs-α always tests the complex
+      composition independently. Curves can be hidden after calculation.
   dt_values:
     title: dt values
-    short: Step sizes used to estimate error and convergence slope.
-    long: At least two positive values are required. Several successively smaller
-      steps make the order estimate more reliable.
+    short: Step sizes for trajectories, convergence, and order versus α.
+    long: Selected trajectories are calculated at every step in this list; a dropdown
+      switches the displayed step. One value suffices for trajectories alone, while
+      convergence requires at least two positive distinct steps. An individual trace
+      uses the dt field under Single run; f–I and trials use a separate comparison step.
+  comparison_dt:
+    title: Step for f–I and trials
+    short: Fixed step for comparing methods across currents and seeds.
+    long: The f–I plot and repeated noisy trials use this dt. It is separate from
+      the individual trajectory step and the convergence step grid.
   current_range:
     title: f–I current range
     short: Three values “start, stop, step” used to build firing rate versus I.
@@ -143,14 +180,56 @@ single_neuron:
   alpha_values:
     title: α values
     short: Test points for the complex two-stage Euler composition.
-    long: Include α=0.5 and values on either side to verify visually that second order
-      occurs only at the special point.
+    long: Shown only when the order-vs-α plot is selected. Include α=0.5 and values
+      on either side; the individual trajectory method and α field do not affect
+      this scan.
+  runs:
+    title: Number of runs
+    short: Independent current-noise realizations for f–I and trial variability.
+    long: With σ=0 the neuron is deterministic and repeated results coincide; the
+      field is disabled and f–I needs one run. The trials plot requires σ>0.
+      Equal seeds give the same stimulus to each method;
+      individual run values are saved.
+  seed:
+    title: Initial seed
+    short: Random-generator seed for the noisy input current.
+    long: Runs use seed, seed+1, and so on. With zero noise the seed has no effect.
+      Use paired seeds to compare methods under the same input streams.
+  noise_std:
+    title: Input-current noise amplitude σ
+    short: Standard deviation of the current added to the baseline I.
+    long: Independent Gaussian values are held between time boundaries. Convergence,
+      the α sweep, and the summary are always computed without noise; repeated trials
+      and f–I use the specified noise amplitude.
+  noise_interval:
+    title: Noise update interval
+    short: Model milliseconds between independent current samples.
+    long: Boundaries are fixed in simulated time so methods receive the same stimulus
+      for a given seed. Integration steps are cut at those boundaries.
   trace:
     title: State trajectories
     short: Membrane potential v(t) and recovery variable u(t).
-    long: “One trajectory” shows the drop-down method. “Compare methods” shows all
-      checked methods at exactly the same dt; checkboxes above the plot toggle individual
-      curves. Hovering reports the selected point.
+    long: “One trajectory” shows the drop-down method. For a study, selected methods
+      run at all dt values in the list; the dropdown above the plots changes the displayed
+      step without rerunning. Another menu hides individual methods. Hovering reports a point.
+  phase:
+    title: Phase portrait v–u
+    short: Selected methods in potential–recovery coordinates.
+    long: A study plots every selected method at every listed step; choose the step
+      and visible methods above the plot. An individual run shows only its method.
+      For constant current, dv/dt=0 and du/dt=0 nullclines are shown. Trajectories
+      break at reset. The view fits visited states, so distant nullcline sections
+      may be off screen. With noisy input the voltage nullcline moves over time,
+      so nullclines are omitted.
+  isi_sequence:
+    title: ISI by successive spikes
+    short: Deviation of each inter-spike interval from a reference period.
+    long: Each point is the interval between two adjacent spikes within the
+      observation window minus T. When convergence is selected, T comes from its
+      refined reference; otherwise it is the median ISI of the first method at
+      the finest dt, a guide rather than an independent reference. Select dt above
+      the plot. Points above and below zero show longer and shorter cycles.
+      This compares separate cycle lengths without an ambiguous circular scale.
   convergence:
     title: ISI convergence
     short: ISI (inter-spike interval) is the time between consecutive spikes.
@@ -159,10 +238,16 @@ single_neuron:
       visual first- and second-order references.
   fi:
     title: f–I curve
-    short: Steady firing rate f as a function of constant input current I.
-    long: Rate is estimated from ISIs after burn-in. This is an open-loop neuron
-      characteristic; the MATLAB feedback controller and weak onset-only SNIC fit are
-      deliberately kept separate.
+    short: Firing rate f as a function of baseline input current I.
+    long: Rate is the post-burn-in spike count divided by the observation-window duration;
+      it is defined even for one spike, while mean ISI is not. With repeated trials points show the mean and ±one sample
+      standard deviation across successful runs. No controller or curve fit is used.
+  variability:
+    title: Firing-rate variability across trials
+    short: Each method's firing rate under matched noisy-input seeds.
+    long: Every point is a run with its own seed. The summary shows mean, sample
+      standard deviation, and number of successful runs. This is response variability,
+      not a numerical-error estimate. Keep the model, dt, and reset fixed across methods.
   alpha:
     title: Order versus α
     short: Tests the complex two-stage composition at different α values.
@@ -175,9 +260,18 @@ single_neuron:
     long: 'LTE order estimates p when local error scales as dt^(p+1); ISI event is
       inter-spike-interval error order with event reset; ISI grid repeats it with grid
       reset; ISI error is measured at the finest dt; drift is accumulated spike-time
-      offset in milliseconds per simulated second; step is mean per-step cost on this
-      machine. Lower error, drift, and cost are better; order should match theory; no
-      case should diverge.'
+      offset slope in milliseconds per simulated second, and is undefined when spike
+      counts differ. The first order column uses the selected reset and the other is
+      its control. Step cost is a single-run timing, not a repeated benchmark. The
+      reference refinement difference is displayed above the table.'
+  summary_reference:
+    title: Inter-spike-period reference
+    short: Reference period for ISI error and reference trace for drift.
+    long: Event-corrected midpoint is evaluated at three fine dt values. Two adjacent
+      pairs yield Richardson-extrapolated period estimates; their difference is shown
+      next to reference T. The period uses observation-window spikes only. If the
+      difference is large, refine the reference before ranking small method errors.
+      Drift uses spike times from the finest reference run.
 dci:
   n_exc:
     title: Excitatory population size
@@ -267,7 +361,8 @@ dci:
   homeo_max_current:
     title: Maximum homeostatic current
     short: Upper bound for additional inhibitory current per E neuron.
-    long: The bound prevents unlimited growth of the homeostatic correction.
+    long: The bound prevents unlimited growth of the extra inhibition; the current
+      also decays exponentially during simulation.
 reservoir:
   iris_neurons_per_feature:
     title: Population neurons per Iris feature
@@ -345,9 +440,9 @@ evaluation:
     title: E-label assignment samples
     short: Number of labelled training objects used only to map E neurons to classes.
     long: After STDP, the network is run without changing weights. A class-mean response
-      is computed for every E neuron and its best class is assigned. These samples
-      are not the test set. For a clean protocol, they should preferably not overlap
-      the objects used for STDP.
+      is computed for every E neuron and its best class is assigned. These are not
+      test objects. By default they come from the training pool and may overlap with
+      STDP examples; choose the non-overlapping assignment policy below to avoid this.
     affects:
     - class-assignment stability
     - silent-neuron count

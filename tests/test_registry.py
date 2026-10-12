@@ -11,4 +11,5 @@ def test_builtin_catalog_has_stable_localizable_ids() -> None:
 
     descriptor = numerical_methods.descriptor("semi_euler")
     translator = Translator("ru")
-    assert translator.tr(descriptor.display_name_key) == "Полуявный Эйлер"
+    assert translator.tr(descriptor.display_name_key) == "Полуявный Эйлер (v→u)"
+    assert "semi_euler_uv" in numerical_methods

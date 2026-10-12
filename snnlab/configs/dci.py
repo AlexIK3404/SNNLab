@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +54,9 @@ class DCIConfig:
 
     exc_numerical_method: str = "explicit_euler"
     inh_numerical_method: str = "explicit_euler"
+    implicit_rtol: float = 1e-3
+    implicit_atol_v: float = 0.05
+    implicit_atol_u: float = 0.01
 
     @property
     def stimulus_steps(self) -> int:
@@ -71,6 +75,10 @@ class DCIConfig:
             raise ValueError("Population sizes must be positive")
         if self.dt_ms <= 0:
             raise ValueError("dt_ms must be positive")
+        if any(not isfinite(x) or x <= 0 for x in (
+            self.implicit_rtol, self.implicit_atol_v, self.implicit_atol_u,
+        )):
+            raise ValueError("implicit Euler tolerances must be finite and positive")
 
 
 @dataclass(frozen=True, slots=True)

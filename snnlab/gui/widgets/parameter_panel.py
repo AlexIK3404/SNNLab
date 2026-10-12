@@ -179,6 +179,20 @@ class ParameterPanel(QScrollArea):
                         editor.setCurrentIndex(index)
             finally:
                 editor.blockSignals(False)
+        self._update_implicit_tolerance_visibility()
+
+    def _update_implicit_tolerance_visibility(self) -> None:
+        method_keys = (
+            ("exc_method", "inh_method") if self._architecture == "dci"
+            else ("numerical_method",)
+        )
+        selected = any(
+            key in self._rows and self._rows[key].editor.currentData() == "implicit_euler"
+            for key in method_keys
+        )
+        for key in ("implicit_rtol", "implicit_atol_v", "implicit_atol_u"):
+            if key in self._rows:
+                self._rows[key].setVisible(selected)
 
     def retranslate(self) -> None:
         for row in self._rows.values():
@@ -236,6 +250,13 @@ class ParameterPanel(QScrollArea):
                 dataset_row.editor.currentIndexChanged.connect(
                     lambda *_: self._apply_reservoir_dataset_preset()
                 )
+        for key in ("exc_method", "inh_method", "numerical_method"):
+            row = self._rows.get(key)
+            if row is not None:
+                row.editor.currentIndexChanged.connect(
+                    lambda *_: self._update_implicit_tolerance_visibility()
+                )
+        self._update_implicit_tolerance_visibility()
 
     def _apply_reservoir_dataset_preset(self) -> None:
         """
@@ -330,6 +351,20 @@ def _method_choices() -> tuple[tuple[str, str], ...]:
         "semi_implicit_midpoint",
     )
     return tuple((method_id, f"components.numerical_methods.{method_id}") for method_id in ids)
+
+
+def _implicit_tolerance_specs() -> list[ParameterSpec]:
+    return [
+        ParameterSpec("implicit_rtol", "gui.params.implicit_rtol", "float", 0.001,
+                      "simulation", 0.000001, 0.1, 0.0001, 6,
+                      help_topic="single_neuron.implicit_tolerance"),
+        ParameterSpec("implicit_atol_v", "gui.params.implicit_atol_v", "float", 0.05,
+                      "simulation", 0.000001, 10.0, 0.01, 6,
+                      help_topic="single_neuron.implicit_tolerance"),
+        ParameterSpec("implicit_atol_u", "gui.params.implicit_atol_u", "float", 0.01,
+                      "simulation", 0.000001, 10.0, 0.01, 6,
+                      help_topic="single_neuron.implicit_tolerance"),
+    ]
 
 
 def _common_specs() -> list[ParameterSpec]:
@@ -473,6 +508,7 @@ def dci_parameter_specs() -> list[ParameterSpec]:
             choices=_method_choices(),
             help_topic="dci.inh_method",
         ),
+        *_implicit_tolerance_specs(),
         ParameterSpec(
             "input_gain",
             "gui.params.input_gain",
@@ -816,6 +852,7 @@ def reservoir_parameter_specs() -> list[ParameterSpec]:
             choices=_method_choices(),
             help_topic="reservoir.numerical_method",
         ),
+        *_implicit_tolerance_specs(),
         ParameterSpec(
             "input_density",
             "gui.params.input_density",

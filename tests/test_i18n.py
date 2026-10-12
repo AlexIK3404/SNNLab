@@ -29,6 +29,7 @@ def test_locale_switch_and_help() -> None:
 def test_single_neuron_learning_mode_topics_are_complete() -> None:
     topics = (
         "workspace",
+        "outputs",
         "preset",
         "threshold",
         "current",
@@ -42,10 +43,16 @@ def test_single_neuron_learning_mode_topics_are_complete() -> None:
         "dt_values",
         "current_range",
         "alpha_values",
+        "runs",
+        "seed",
+        "noise_std",
+        "noise_interval",
         "trace",
+        "phase",
         "convergence",
         "fi",
         "alpha",
+        "variability",
         "summary",
     )
     for locale in Translator.available_locales():
