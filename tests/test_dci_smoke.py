@@ -1,6 +1,6 @@
 import numpy as np
 
-from snnlab.architectures.dci import build_dci_model
+from snnlab.architectures.dci import NeuronPopulationState, _population_step, build_dci_model
 from snnlab.configs.dci import (
     DCIConfig,
     DCIHomeostasisConfig,
@@ -46,3 +46,22 @@ def test_small_dci_train_sample_smoke() -> None:
     assert metrics["exc_counts"].shape == (6,)
     assert metrics["inh_counts"].shape == (6,)
     assert np.isclose(np.sum(model.connectivity.w_input_exc, axis=0), 1.0).all()
+
+
+def test_implicit_dci_population_produces_spikes() -> None:
+    v = np.full(6, -65.0)
+    state = NeuronPopulationState(
+        v=v, u=0.2 * v, g_exc=np.zeros(6), g_inh=np.zeros(6),
+        refractory_left_ms=np.zeros(6),
+    )
+    spike_count = 0
+    for _ in range(300):
+        spikes = _population_step(
+            state, a=0.02, b=0.2, c=-65.0, d=8.0, v_peak=30.0,
+            refractory_ms=0.4, dt_ms=0.4, e_exc=0.0, e_inh=-80.0,
+            bias_current=12.0, numerical_v_min=-500.0, numerical_v_max=500.0,
+            numerical_method="implicit_euler",
+        )
+        spike_count += int(spikes.sum())
+        assert np.all(np.isfinite(state.v)) and np.all(np.isfinite(state.u))
+    assert spike_count > 0

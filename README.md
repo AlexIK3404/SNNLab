@@ -10,10 +10,11 @@ SNNLab is a Python research framework and desktop environment for experiments wi
 
 - **DCI / Diehl–Cook-like SNN** with Izhikevich excitatory and inhibitory populations, Input→E STDP, lateral inhibition, target-rate homeostasis, receptive fields, and SNN-native classification.
 - **Reservoir / LSM-like SNN** with fixed recurrent weights, selectable numerical integration methods, live spike visualization, and a readout for reservoir-computing experiments.
-- Seven numerical integration methods for Izhikevich neurons.
+- Numerical integration methods for Izhikevich neurons, including both semi-explicit update orders.
 - A side menu for experiment sections and a **single-neuron ablation workspace** with event-corrected
   threshold reset, traces, f-I curves, ISI convergence, spike-time drift, compute cost,
-  grid-reset controls, and the real/complex two-stage Euler comparison.
+  grid-reset controls, and the real/complex two-stage Euler comparison. Selectable
+  outputs, paired seeded current-noise trials, and PNG/SVG plot export support ablations.
 - Live input image, spike raster, population-state view, activity history, receptive fields, evaluation diagnostics, and interactive values on plots.
 - Pause, stop, checkpoint loading, exact continuation, and further training.
 - RU/EN interface and a study mode with contextual explanations of parameters.

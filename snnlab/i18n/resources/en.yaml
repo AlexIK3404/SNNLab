@@ -19,14 +19,16 @@ components:
     izhikevich: Izhikevich
   numerical_methods:
     explicit_euler: Explicit Euler
-    semi_euler: Semi-explicit Euler
+    semi_euler: Semi-explicit Euler (v→u)
+    semi_euler_uv: Semi-explicit Euler (u→v)
     semi_implicit_euler: Semi-implicit Euler
-    implicit_euler: Implicit Euler
-    midpoint: Midpoint
-    semi_midpoint: Semi-explicit midpoint
+    implicit_euler: Implicit Euler (adaptive step)
+    midpoint: Explicit midpoint
+    semi_midpoint: Semi-explicit midpoint v→u
+    semi_midpoint_uv: Semi-explicit midpoint u→v
     semi_implicit_midpoint: Semi-implicit midpoint
-    euler_composition_real: Two-stage Euler composition (real)
-    euler_composition_complex: Two-stage Euler composition (complex)
+    euler_composition_real: Euler composition (s, real)
+    euler_composition_complex: Euler composition (α, complex)
   architectures:
     reservoir: Reservoir / LSM-like
     dci: DCI / Diehl-Cook-like
@@ -54,16 +56,15 @@ gui:
     busy_message: Finish or stop the current experiment before switching sections.
   single_neuron:
     title: Single-neuron experiments
-    description: 'An isolated numerical-method test before connections, STDP, or a
-      classifier are introduced. It measures trajectories, f–I curves, spike-period
-      error, accumulated timing drift, convergence order, and compute cost. Event-corrected
-      reset separates integrator error from the artificial error caused by snapping a
-      spike to the end of a timestep. Firing-rate feedback control is intentionally outside
-      this ablation.'
+    description: 'Select the plots and methods you need. Comparison defaults to grid
+      reset; the summary also computes a control with the other reset mode.
+      Noise and seed apply to f–I and repeated trials.'
     groups:
       neuron: Izhikevich model parameters
-      simulation: Single run
-      ablation: Full-study axes
+      simulation: Shared conditions
+      single_run: Single run
+      ablation: Comparison settings
+      outputs: Generate results
     params:
       preset: Neuron type
       a: a
@@ -72,61 +73,95 @@ gui:
       d: d
       threshold: Threshold, mV
       current: Constant current I
-      duration: Duration, ms
-      burn_in: Discard initial, ms
+      duration: Observation window, ms
+      burn_in: Initial transient, ms
       dt: Step dt, ms
       method: Numerical method
       reset: Reset handling
+      comparison_reset: Comparison reset
       composition_s: Coefficient s
-      composition_alpha: Coefficient α
+      composition_alpha: Selected method α
+      implicit_rtol: Implicit Euler — relative tolerance
+      implicit_atol_v: Implicit Euler — v tolerance, mV
+      implicit_atol_u: Implicit Euler — u tolerance
+      comparison_implicit_rtol: Implicit Euler — relative tolerance
+      comparison_implicit_atol_v: Implicit Euler — v tolerance, mV
+      comparison_implicit_atol_u: Implicit Euler — u tolerance
       methods: Methods to compare
       dt_values: dt values, ms
+      comparison_dt: Step for f–I and trials, ms
       current_range: I range (start, stop, step)
-      alpha_values: α values
+      alpha_values: α values for plot
+      runs: Runs per method
+      seed: Initial seed
+      noise_std: Current noise σ
+      noise_interval: Noise update interval, ms
+      comparison_s: Composition s in comparison
+      comparison_alpha: Composition α in comparison
+    outputs:
+      traces: Trajectories v(t), u(t)
+      phase: Phase portraits v–u
+      convergence: ISI convergence
+      fi: f–I curves
+      alpha: Order vs α (complex composition)
+      variability: Rate across trials
+      summary: Summary and reset control
     presets:
       regular_spiking: Regular spiking (RS)
       fast_spiking: Fast spiking (FS)
       intrinsically_bursting: Intrinsically bursting (IB)
       chattering: Chattering (CH)
       low_threshold_spiking: Low-threshold spiking (LTS)
+      phasic_spiking: Phasic spiking
+      phasic_bursting: Phasic bursting
+      spike_frequency_adaptation: Spike-frequency adaptation
+      custom: Custom parameters
     reset_modes:
       event: Event-corrected threshold crossing
       grid: Grid-aligned reset at step end
     buttons:
       trace: One trajectory
       study: Compare methods
+      open: Open result…
+      open_title: Select study.json from a saved study
       cancel: Stop
       trace_tip: Run the method selected in “Numerical method” at the current dt.
-      study_tip: Run the complete protocol for checked methods and compare their trajectories at one dt.
+      study_tip: Compute only the selected outputs for the chosen methods.
+      open_tip: Open study.json from a saved study folder without recomputing it.
       cancel_tip: Stop the running comparison at the next safe boundary.
     status:
       ready: Ready.
       trace_done: Trace calculated.
-      running: Running the full study…
+      running: Computing selected results…
       cancelling: Stopping at the next safe boundary…
       cancelled: Study stopped; partial results were not saved.
       completed: Study completed and saved.
+      loaded: Saved study opened.
       error: Study failed.
       stage: '{stage}: {value}/{maximum}'
     stages:
+      reference: Refining reference
       trace: Method trajectories
       convergence: ISI convergence and drift
-      grid_convergence: Grid-reset control run
+      reset_control: Control run with the other reset mode
       fi_curve: f–I curves
       alpha_sweep: α parameter sweep
+      variability: Repeated noisy-current runs
     tabs:
       trace: Trajectories
+      phase: Phase portrait
+      isi_sequence: ISI by spike
       convergence: ISI convergence
       fi: f–I curve
       alpha: Order vs α
+      variability: Trials
       summary: Summary
     notes:
       convergence: 'Log-log spike-period error relative to a small-step midpoint reference
         with Richardson extrapolation. The slope over the three smallest steps estimates
         the observed order.'
-      fi: 'Rate is measured from inter-spike intervals after burn-in. This is an open-loop
-        neuron characteristic; the MATLAB SNIC fit and controller are deliberately kept
-        separate from the integrator comparison.'
+      fi: 'Rate is the number of spikes in the observation window divided by its
+        duration. It is defined even for one spike; mean ISI is then undefined.'
       alpha: 'A two-stage Euler composition is second order when c₁+c₂=1 and c₁c₂=1/2.
         No real pair solves both conditions; the conjugate pair 1/2±iα does so only at
         α=1/2. LTE order is the primary test because finite-range ISI fits are more fragile.'
@@ -135,51 +170,87 @@ gui:
     table:
       method: Method
       lte_order: LTE order
-      isi_order: ISI event
-      grid_order: ISI grid
+      isi_event: ISI event
+      isi_grid: ISI grid
+      spike_counts: N / Nref
       error: ISI error, ms
       drift: Drift, ms/s
-      cost: Step, ns
+      cost: Step*, ns
       status: Stability
       ok: no divergence
       diverged: 'diverged: {count}'
     table_help:
-      method: Numerical method summarized by this row.
-      lte_order: 'Order p estimated from local error: LTE is proportional to dt^(p+1). It should approach the method’s theoretical order.'
-      isi_order: Convergence order of inter-spike-interval error with event-corrected reset timing.
-      grid_order: The same order with reset at the end of a grid step; spike-time rounding usually limits it to first order.
-      error: Absolute mean-ISI error at the finest selected dt relative to the reference solution.
-      drift: Accumulated spike-time offset per simulated second relative to the reference. Lower is better.
-      cost: Mean compute time per simulation step on this machine. Compare it within one run.
-      status: Number of dt cases whose state exceeded the stability limit or became non-finite.
+      method: Numerical method from the selected comparison list. This row uses the shared conditions and the selected comparison reset mode.
+      lte_order: Order p of a smooth step away from reset, estimated from local error LTE ~ dt^(p+1). It characterizes the integrator but does not by itself predict spike timing accuracy.
+      isi_event: Slope of inter-spike-period error versus dt with event-corrected reset. The period uses spikes in the observation window only; this column may be the control.
+      isi_grid: Slope of inter-spike-period error versus dt with grid reset. The period uses spikes in the observation window only; rounded spike timing can limit observed order.
+      spike_counts: Number of method spikes at the finest selected dt / reference spikes. Only spikes in the observation window count. Drift is undefined if the counts differ.
+      error: Absolute difference between the method period at the finest selected dt and the extrapolated reference period, in ms. Both use observation-window spikes.
+      drift: Absolute slope of time differences between paired method and reference spikes in the observation window, ms per simulated second. A dash means matching was unreliable or spikes were insufficient.
+      cost: Average time per grid step in a single full run, including the transient, threshold checks, and reset. Implicit Euler includes internal subdivision; hover over its cell for the number of attempts. This is an exploratory cost, not a repeated benchmark.
+      status: Number of dt values that diverged before the end of the full run, including the transient. “No divergence” means only that the configured stability limit was not exceeded.
     axes:
       time_ms: Time, ms
       voltage_mv: Potential v, mV
       recovery: Recovery u
+      isi_index: Interval number
+      isi_deviation_ms: ISI deviation, ms
       dt_ms: Step dt, ms
       isi_error_ms: '|period error|, ms'
       current: Input current I
       rate_hz: Rate, Hz
       order: Observed order
+      seed: Seed
     legend:
       local_order: Local-error order
       period_order: Spike-period order
       first_order: O(dt)
       second_order: O(dt²)
+      v_nullcline: dv/dt = 0
+      u_nullcline: du/dt = 0
+    export:
+      button: Save plot…
+      title: Save plot as PNG or SVG
+    view:
+      button: View…
+      tip: 'P — pan, Z — rectangle zoom; X/Y/B — axes; +/− — zoom; 0 — all data; F — expand; Ctrl+S — save. Wheel or right drag zooms.'
+      both: Both axes
+      x: X axis only
+      y: Y axis only
+      pan: Pan with mouse (P)
+      rectangle: Zoom to rectangle (Z)
+      reset: Show all data
+      maximize: Expand plot
+      window: Plot — expanded view
+      close: Close
     help:
       dt: A smaller dt usually reduces numerical error but increases simulation cost.
       reset: Grid reset rounds spike time to the grid and adds an O(dt) error unrelated to integrator order.
       alpha: The complex composition reaches theoretical second order at α=0.5.
     trace_metrics: '<b>Spikes:</b> {spikes} &nbsp; <b>Rate:</b> {rate} Hz &nbsp;
       <b>Mean ISI:</b> {isi} ms &nbsp; <b>CV(ISI):</b> {cv} &nbsp; <b>Compute:</b>
-      {runtime} ms'
+      {runtime} ms (full run)'
+    implicit_work: '<b>Implicit quadratic solves / grid step:</b> {attempts}'
+    implicit_work_tip: 'Implicit Euler: {attempts} quadratic solves per grid step on average at the finest dt (three per error estimate, including rejected steps). Threshold refinement is excluded.'
     comparison_context: '<b>Comparing {count} methods:</b> shared dt={dt} ms, I={current}, and “{reset}” reset handling.'
+    phase_trajectory: 'Trajectory: {method}'
+    isi_context: 'ΔISIₖ = (tₖ₊₁ − tₖ) − T; T = {period} ms ({source}). Positive values mean longer intervals.'
+    isi_reference:
+      reference: refined convergence reference
+      estimate: median ISI of the first method at the finest step
+    summary_reference: 'Reference: midpoint + event reset, T={period} ms; difference between extrapolations {difference} ms (finest dt={dt} ms).'
+    summary_help_hint: In learning mode, click a column heading to see how its metric is calculated.
     trace_visibility: 'Curves:'
+    trace_dt_option: 'dt = {dt} ms'
     hover_hint: Hover over a curve to inspect exact coordinates.
     hover_value: '{series}  |  x={x}  |  y={y}'
     output_path: 'Results: {path}'
     errors:
+      no_outputs: Select at least one result to compute.
       no_methods: Select at least one comparison method.
+      noisy_order: Turn off current noise for convergence, summary, and α order. Study noisy trials separately.
+      no_repeat_without_noise: Runs with zero noise are identical. Set σ > 0 or use one run.
+      variability_requires_noise: With σ=0 all trials are identical. Set σ > 0 for the trials plot or deselect it.
   tabs:
     live: Live
     network: Network
@@ -254,6 +325,9 @@ gui:
     exc_method: E numerical method
     inh_method: I numerical method
     numerical_method: Numerical method
+    implicit_rtol: Implicit Euler relative tolerance
+    implicit_atol_v: Implicit Euler voltage tolerance, mV
+    implicit_atol_u: Implicit Euler recovery tolerance
     input_gain: Input gain
     weight_exc_inh: E → I weight
     target_total_inhibition: Target total I → E inhibition

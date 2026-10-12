@@ -13,7 +13,11 @@ from snnlab.configs.dci import (
     DCIPresentationConfig,
     DCISTDPConfig,
 )
-from snnlab.core.numerical_methods import IzhikevichParameters, get_stepper
+from snnlab.core.numerical_methods import (
+    IzhikevichParameters,
+    get_stepper,
+    implicit_euler_grid_step,
+)
 
 
 @dataclass(slots=True)
@@ -303,6 +307,9 @@ def _population_step(
     numerical_v_min: float,
     numerical_v_max: float,
     numerical_method: str,
+    implicit_rtol: float = 1e-3,
+    implicit_atol_v: float = 0.05,
+    implicit_atol_u: float = 0.01,
     additional_inhibitory_current: np.ndarray | None = None,
 ) -> np.ndarray:
     """
@@ -323,16 +330,23 @@ def _population_step(
         synaptic_current -= current
 
     active_mask = ~refractory_mask
+    implicit_spikes = np.zeros(state.v.shape, dtype=bool)
     if np.any(active_mask):
         stepper = get_stepper(numerical_method)
         params = IzhikevichParameters(a=a, b=b)
-        v_new, u_new = stepper(
-            v_old[active_mask],
-            u_old[active_mask],
-            synaptic_current[active_mask],
-            dt_ms,
-            params,
-        )
+        if numerical_method == "implicit_euler":
+            v_new, u_new, local_spikes = implicit_euler_grid_step(
+                v_old[active_mask], u_old[active_mask], synaptic_current[active_mask],
+                dt_ms, params, threshold=v_peak, reset_voltage=c, reset_recovery=d,
+                state_limit=max(abs(numerical_v_min), abs(numerical_v_max)),
+                rtol=implicit_rtol, atol_v=implicit_atol_v, atol_u=implicit_atol_u,
+            )
+            implicit_spikes[active_mask] = local_spikes
+        else:
+            v_new, u_new = stepper(
+                v_old[active_mask], u_old[active_mask], synaptic_current[active_mask],
+                dt_ms, params,
+            )
         state.v[active_mask] = v_new
         state.u[active_mask] = u_new
 
@@ -342,10 +356,12 @@ def _population_step(
     state.u[refractory_mask] = u_old[refractory_mask] + dt_ms * a * (b * c - u_old[refractory_mask])
 
     finite = np.isfinite(state.v) & np.isfinite(state.u)
-    spikes = active_mask & finite & (state.v >= v_peak) & (state.v <= numerical_v_max)
+    raw_spikes = active_mask & finite & (state.v >= v_peak) & (state.v <= numerical_v_max)
+    spikes = raw_spikes | implicit_spikes
+    if np.any(raw_spikes):
+        state.v[raw_spikes] = c
+        state.u[raw_spikes] += d
     if np.any(spikes):
-        state.v[spikes] = c
-        state.u[spikes] += d
         state.refractory_left_ms[spikes] = refractory_ms
 
     unstable = (~finite) | (state.v < numerical_v_min) | (state.v > numerical_v_max)
@@ -445,6 +461,9 @@ def simulate_dci(
             numerical_v_min=dyn.numerical_v_min,
             numerical_v_max=dyn.numerical_v_max,
             numerical_method=cfg.exc_numerical_method,
+            implicit_rtol=cfg.implicit_rtol,
+            implicit_atol_v=cfg.implicit_atol_v,
+            implicit_atol_u=cfg.implicit_atol_u,
             additional_inhibitory_current=model.homeostasis_state.exc_current,
         )
         inh_spikes = _population_step(
@@ -462,6 +481,9 @@ def simulate_dci(
             numerical_v_min=dyn.numerical_v_min,
             numerical_v_max=dyn.numerical_v_max,
             numerical_method=cfg.inh_numerical_method,
+            implicit_rtol=cfg.implicit_rtol,
+            implicit_atol_v=cfg.implicit_atol_v,
+            implicit_atol_u=cfg.implicit_atol_u,
         )
 
         state.last_exc_spikes = exc_spikes.copy()
